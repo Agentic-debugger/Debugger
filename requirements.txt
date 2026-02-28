@@ -1,8 +1,6 @@
-uvicorn==0.41.0
-googleadk==1.26.0
-pip==26.0.1
-python==3.11.9
+google-adk>=1.0.0
 python-dotenv==1.0.1
-pytest==9.0.2
-pydantic==2.12.5
-rich==14.0.0
+pytest>=7.0.0
+pydantic>=2.0.0
+rich>=13.0.0
+uvicorn>=0.20.0
