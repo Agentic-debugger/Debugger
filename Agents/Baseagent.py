@@ -12,7 +12,7 @@ load_dotenv(dotenv_path=dotenv_path)
 
 
 class BaseAgent:
-    def __init__(self, name: str, instructions: str, model: str = "gemini-2.0-flash"):
+    def __init__(self, name: str, instructions: str, model: str = "gemini-2.5-flash"):
         """
         Base agent class that all specialized agents inherit from.
 
