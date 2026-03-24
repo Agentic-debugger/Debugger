@@ -70,3 +70,5 @@ Debugger/
 ├── requirements.txt
 └── .gitignore
 ```
+
+to run python orchestration/controller.py bad_code_sample.py
