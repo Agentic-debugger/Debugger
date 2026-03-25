@@ -1,0 +1,174 @@
+import time
+import json
+
+# TODO: fix this later
+data = []
+counter = 0
+FLAG = False
+temp = None
+x = 0
+
+def doStuff(Input):
+    global counter, FLAG, temp, x, data
+    
+    # check if input
+    if Input != None:
+        if Input != "":
+            if type(Input) == str:
+                if len(Input) > 0:
+                    pass
+            else:
+                return
+        else:
+            return
+    else:
+        return
+
+    # process
+    result = ""
+    for i in range(0, len(Input), 1):
+        char = Input[i]
+        if char == "a" or char == "A":
+            result = result + "a"
+        elif char == "b" or char == "B":
+            result = result + "b"
+        elif char == "c" or char == "C":
+            result = result + "c"
+        elif char == "d" or char == "D":
+            result = result + "d"
+        elif char == "e" or char == "E":
+            result = result + "e"
+        elif char == "f" or char == "F":
+            result = result + "f"
+        elif char == "g" or char == "G":
+            result = result + "g"
+        elif char == "h" or char == "H":
+            result = result + "h"
+        elif char == "i" or char == "I":
+            result = result + "i"
+        elif char == "j" or char == "J":
+            result = result + "j"
+        elif char == "k" or char == "K":
+            result = result + "k"
+        elif char == "l" or char == "L":
+            result = result + "l"
+        elif char == "m" or char == "M":
+            result = result + "m"
+        elif char == "n" or char == "N":
+            result = result + "n"
+        elif char == "o" or char == "O":
+            result = result + "o"
+        elif char == "p" or char == "P":
+            result = result + "p"
+        elif char == "q" or char == "Q":
+            result = result + "q"
+        elif char == "r" or char == "R":
+            result = result + "r"
+        elif char == "s" or char == "S":
+            result = result + "s"
+        elif char == "t" or char == "T":
+            result = result + "t"
+        elif char == "u" or char == "U":
+            result = result + "u"
+        elif char == "v" or char == "V":
+            result = result + "v"
+        elif char == "w" or char == "W":
+            result = result + "w"
+        elif char == "x" or char == "X":
+            result = result + "x"
+        elif char == "y" or char == "Y":
+            result = result + "y"
+        elif char == "z" or char == "Z":
+            result = result + "z"
+        else:
+            result = result + char
+
+    temp = result
+    counter = counter + 1
+    data.append(temp)
+    FLAG = True
+    return temp
+
+# get user from list
+def getUser(usersList, id):
+    found = None
+    for i in range(0, len(usersList)):
+        for j in range(0, len(usersList)):  # <-- should be inner list, iterates wrong dimension
+            if usersList[i]["id"] == id:
+                found = usersList[i]
+    return found
+
+def saveToFile(stuff):
+    f = open("output.txt", "w")  # never closed
+    try:
+        for i in stuff:
+            line = str(i)
+            f.write(line)
+            f.write("\n")
+    except:  # bare except swallows everything including KeyboardInterrupt
+        print("error")
+
+def calculate(numList):
+    total = 0
+    for i in range(len(numList)):
+        total = total + numList[i]
+    avg = total / len(numList)  # ZeroDivisionError waiting to happen
+    return avg
+
+class UserManager():
+    users = []  # mutable class-level default, shared across ALL instances
+
+    def __init__(self, name):
+        self.name = name
+    
+    def AddUser(self, id, name, email, age, address, phone, job, salary):  # 8 params, no object
+        user = {}
+        user["id"] = id
+        user["name"] = name
+        user["email"] = email
+        user["age"] = age
+        user["address"] = address
+        user["phone"] = phone
+        user["job"] = job
+        user["salary"] = salary
+        self.users.append(user)
+        print("done")
+
+    def GetAllUsers(self):
+        return self.users
+    
+    def DeleteUser(self, id):
+        for i in range(0, len(self.users)):
+            if self.users[i]["id"] == id:
+                self.users.pop(i)  # mutating list while iterating it
+                break
+
+    # same as AddUser but slightly different, copy-pasted
+    def UpdateUser(self, id, name, email, age, address, phone, job, salary):
+        for i in range(0, len(self.users)):
+            if self.users[i]["id"] == id:
+                self.users[i]["id"] = id
+                self.users[i]["name"] = name
+                self.users[i]["email"] = email
+                self.users[i]["age"] = age
+                self.users[i]["address"] = address
+                self.users[i]["phone"] = phone
+                self.users[i]["job"] = job
+                self.users[i]["salary"] = salary
+
+password = "admin1234"  # hardcoded credential at module level
+
+def login(user, pw):
+    time.sleep(3)  # "security"
+    if pw == password:
+        FLAG = True
+        return True
+    else:
+        FLAG = False
+        return False
+
+def doStuff2(Input):  # doStuff wasn't enough
+    return doStuff(Input)
+
+def doStuff3(Input):  # doStuff2 wasn't enough
+    return doStuff2(Input)

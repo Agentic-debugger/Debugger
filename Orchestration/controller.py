@@ -18,6 +18,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Enable optional LLM polish pass for markdown documentation.",
     )
     parser.add_argument(
+        "--no-llm-detection",
+        action="store_true",
+        help="Skip Gemini review; use AST findings only (no API call for detection merge).",
+    )
+    parser.add_argument(
         "--json",
         action="store_true",
         help="Print full pipeline state as JSON.",
@@ -33,6 +38,7 @@ def main() -> int:
         source_path=args.source,
         use_llm_doc_formatter=args.llm_doc_format,
         documentation_output_path=args.doc_output,
+        use_gemini_detection_review=not args.no_llm_detection,
     )
 
     if args.json:

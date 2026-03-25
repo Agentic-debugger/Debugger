@@ -18,10 +18,11 @@ def run_pipeline(
     source_path: str,
     use_llm_doc_formatter: bool = False,
     documentation_output_path: str | None = None,
+    use_gemini_detection_review: bool = True,
 ) -> PipelineState:
     """
     End-to-end run:
-        DetectorEngine -> LoopAgent(Fixer + validator) -> DocumentationAgent
+        BugDetectionAgent (AST + optional Gemini merge) -> LoopAgent(Fixer + validator) -> DocumentationAgent
     """
     source = Path(source_path)
     state = PipelineState(source_path=str(source))
@@ -35,7 +36,7 @@ def run_pipeline(
     _ensure_project_import_paths(root)
 
     # Imports after path setup because existing agent modules use local imports.
-    from Detector import DetectorEngine
+    from Detector import BugDetectionAgent
     from Loop import LoopAgent
     from Documentation import DocumentationAgent
     from validator import validate_source
@@ -47,9 +48,19 @@ def run_pipeline(
         state.finish("ERROR")
         return state
 
-    # 1) Detect
-    detector = DetectorEngine(state.original_code)
-    state.bug_report = detector.analyze()
+    # 1) Detect: AST pass, then Gemini compares + merges findings for FixerAgent
+    detection_agent = BugDetectionAgent()
+    audit = detection_agent.audit_file(
+        str(source), use_gemini_review=use_gemini_detection_review
+    )
+    if audit.get("error"):
+        state.errors.append(audit["error"])
+        state.finish("ERROR")
+        return state
+    state.ast_report = audit.get("ast_report", {})
+    state.bug_report = audit["bug_report"]
+    state.detection_formatted_summary = audit.get("formatted_summary")
+    state.detection_gemini_review = audit.get("gemini_review") or {}
 
     # 2) Fix loop + validation
     loop = LoopAgent()

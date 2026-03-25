@@ -1,13 +1,11 @@
 from Baseagent import BaseAgent
-# abstract syntax trees it conversts python code into a tree structure so as to find patterns without execution 
-import ast 
-# stop a script if a critical vulnerability is found
-import sys 
-# helps orders from terminal access
+# abstract syntax trees it conversts python code into a tree structure so as to find patterns without execution
+import ast
+import json
+import sys
 import argparse
-# file locations ppath handling 
 from pathlib import Path
-import re      
+import re
 
 class DetectorEngine:
     def __init__(self, source_code: str):
@@ -62,41 +60,212 @@ class DetectorEngine:
                                  "Rename to lowercase_with_underscores.", "Warning")
 
         return self.report
-    
+
+
+def _normalize_severity(value: str) -> str:
+    s = (value or "").strip().lower()
+    if s in ("critical", "error"):
+        return "Error"
+    return "Warning"
+
+
+def _normalize_finding(entry: dict) -> dict:
+    line = entry.get("line")
+    try:
+        line = int(line)
+    except (TypeError, ValueError):
+        line = 0
+    return {
+        "line": line,
+        "type": str(entry.get("type", "Issue")),
+        "severity": _normalize_severity(str(entry.get("severity", "Warning"))),
+        "diagnosis": str(entry.get("diagnosis", "")),
+        "neutralization": str(entry.get("neutralization", "")),
+    }
+
+
+def _finalize_bug_report(findings: list[dict]) -> dict:
+    findings = [_normalize_finding(f) for f in findings]
+    critical = sum(1 for f in findings if f.get("severity") == "Error")
+    return {
+        "status": "FLAGGED" if any(f["severity"] == "Error" for f in findings) else "CLEAN",
+        "critical_count": critical,
+        "findings": findings,
+    }
+
+
+def _extract_json_object(text: str) -> dict | None:
+    text = text.strip()
+    m = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
+    candidate = m.group(1).strip() if m else text
+    start = candidate.find("{")
+    end = candidate.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        return None
+    try:
+        return json.loads(candidate[start : end + 1])
+    except json.JSONDecodeError:
+        return None
+
+
 class BugDetectionAgent(BaseAgent):
     def __init__(self):
-        instructions=""" Role: You are a Senior Forensic Security & Logic Auditor. Your mission is to detect bugs, logic flaws, and security vulnerabilities with zero-tolerance for hallucinations.
+        instructions = """Role: You are a Senior Forensic Security & Logic Auditor. Your mission is to detect bugs, logic flaws, and security vulnerabilities with zero-tolerance for hallucinations.
 
-Protocol: Before providing any fixes, you must perform a 3-step scan:
+When asked for structured JSON in a user message, follow that schema exactly and output only valid JSON in a ```json code block."""
+        super().__init__(name="detection_Agent", instructions=instructions)
 
-Data Flow Mapping: Trace how inputs move through the function.
+    def _gemini_ast_comparison(
+        self, source_code: str, ast_report: dict
+    ) -> tuple[dict | None, str, str | None]:
+        """
+        Ask Gemini to review the code, compare against AST findings, return merged JSON.
 
-Edge Case Stress Test: Mentally execute the code with None, empty strings, massive integers, or unexpected types.
+        Returns:
+            (parsed dict or None, raw model text, parse_error or None)
+        """
+        ast_payload = json.dumps(ast_report["findings"], indent=2)
+        prompt = f"""You are performing a dual review: static AST rules vs your own analysis.
 
-Logic Verification: Does the code actually achieve the stated goal, or is it just "syntactically correct" while being logically broken?
+## AST findings (from automated pattern matching)
+```json
+{ast_payload}
+```
 
-Output Format (Required):
+## Full Python source under review
+```python
+{source_code}
+```
 
-[DETECTION]: Name the bug (e.g., Race Condition, Off-by-one Error).
+## Your tasks
+1. Independently review the source for security risks, logic bugs, API misuse, and maintainability issues.
+2. For each AST finding: confirm it is real, refine diagnosis/neutralization if needed, or reject it as a false positive (explain in rejected_ast).
+3. Add any issues the AST pass missed.
+4. Produce merged_findings: the single deduplicated list of issues that should be fixed. Use the same shape as AST items: line, type, severity (Error or Warning only), diagnosis, neutralization. Line numbers must refer to the source above.
 
-[SEVERITY]: Critical / Warning / Optimization.
+## Output (required)
+Reply with ONLY a JSON object in a ```json code block, no other prose. Schema:
+{{
+  "comparison_summary": "Brief narrative: how AST vs your review agree or differ.",
+  "merged_findings": [
+    {{"line": <int>, "type": "<string>", "severity": "Error"|"Warning", "diagnosis": "<string>", "neutralization": "<string>"}}
+  ],
+  "rejected_ast": [
+    {{"line": <int>, "reason": "<why this AST hit is invalid or acceptable>"}}
+  ]
+}}
+If there are no issues after review, use an empty merged_findings array."""
+        raw = self.run(prompt)
+        parsed = _extract_json_object(raw)
+        if parsed is None:
+            return None, raw, "Could not parse JSON from Gemini response."
+        if not isinstance(parsed, dict):
+            return None, raw, "Parsed JSON is not an object."
+        return parsed, raw, None
 
-[EVIDENCE]: Explain exactly why this line fails and provide a "Proof of Concept" input that would break it.
+    def audit_file(
+        self,
+        filepath: str,
+        *,
+        use_gemini_review: bool = True,
+    ) -> dict:
+        """
+        Run AST detection, have Gemini review the code and merge with AST results.
 
-[NEUTRALIZATION]: Provide the minimal surgical fix. Do not rewrite the whole file unless necessary. """
-        super().__init__(name="detection_Agent",instructions=instructions)
-    def audit_file(self,filepath:str):
-        path=Path(filepath)
+        Returns:
+            {
+                "error": str | None,
+                "ast_report": {"status", "critical_count", "findings"},
+                "bug_report": merged report for FixerAgent (Gemini merge or AST-only),
+                "gemini_review": {
+                    "comparison_summary": str | None,
+                    "rejected_ast": list,
+                    "raw_response": str | None,
+                    "parse_error": str | None,
+                },
+                "formatted_summary": str | None,  # comparison_summary for backward compatibility
+            }
+        """
+        empty_report = {"status": "CLEAN", "critical_count": 0, "findings": []}
+        path = Path(filepath)
         if not path.exists():
-            return f"Error: {filepath} not found"
+            return {
+                "error": f"Error: {filepath} not found",
+                "ast_report": empty_report,
+                "bug_report": empty_report,
+                "gemini_review": {
+                    "comparison_summary": None,
+                    "rejected_ast": [],
+                    "raw_response": None,
+                    "parse_error": None,
+                },
+                "formatted_summary": None,
+            }
+
+        code = path.read_text()
+        engine = DetectorEngine(code)
+        ast_report = engine.analyze()
+
+        gemini_review = {
+            "comparison_summary": None,
+            "rejected_ast": [],
+            "raw_response": None,
+            "parse_error": None,
+        }
+
+        if not use_gemini_review:
+            return {
+                "error": None,
+                "ast_report": ast_report,
+                "bug_report": ast_report,
+                "gemini_review": gemini_review,
+                "formatted_summary": None,
+            }
+
+        parsed, raw_text, parse_err = self._gemini_ast_comparison(code, ast_report)
+        gemini_review["raw_response"] = raw_text
+
+        if parse_err:
+            gemini_review["parse_error"] = parse_err
+            return {
+                "error": None,
+                "ast_report": ast_report,
+                "bug_report": ast_report,
+                "gemini_review": gemini_review,
+                "formatted_summary": None,
+            }
+
+        merged = parsed.get("merged_findings")
+        if not isinstance(merged, list):
+            gemini_review["parse_error"] = "Missing or invalid merged_findings array."
+            return {
+                "error": None,
+                "ast_report": ast_report,
+                "bug_report": ast_report,
+                "gemini_review": gemini_review,
+                "formatted_summary": None,
+            }
+
+        rejected = parsed.get("rejected_ast")
+        if isinstance(rejected, list):
+            gemini_review["rejected_ast"] = rejected
+
+        summary = parsed.get("comparison_summary")
+        if isinstance(summary, str):
+            gemini_review["comparison_summary"] = summary
+
+        bug_report = _finalize_bug_report(merged)
+        formatted = summary
+        if summary and rejected:
+            formatted = f"{summary}\n\nRejected AST items: {json.dumps(rejected, indent=2)}"
+        elif rejected and not summary:
+            formatted = f"Rejected AST items: {json.dumps(rejected, indent=2)}"
+
+        return {
+            "error": None,
+            "ast_report": ast_report,
+            "bug_report": bug_report,
+            "gemini_review": gemini_review,
+            "formatted_summary": formatted,
+        }
         
-        code=path.read_text()
-
-        engine=DetectorEngine(code)
-        rawreport=engine.analyze()
-        if not rawreport["findings"]:
-            return " No forensic issues detected in file."
-
-        # 4. Use the ADK BaseAgent to format the report (Soft Audit)
-        prompt = f"Please process these findings and format a Detection Report:\n{rawreport['findings']}" 
-        return self.run(prompt)

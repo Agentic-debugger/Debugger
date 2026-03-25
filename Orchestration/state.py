@@ -12,6 +12,9 @@ class PipelineState:
 
     original_code: str = ""
     bug_report: dict[str, Any] = field(default_factory=dict)
+    ast_report: dict[str, Any] = field(default_factory=dict)
+    detection_formatted_summary: str | None = None
+    detection_gemini_review: dict[str, Any] = field(default_factory=dict)
     loop_result: dict[str, Any] = field(default_factory=dict)
     documentation_result: dict[str, Any] = field(default_factory=dict)
 
