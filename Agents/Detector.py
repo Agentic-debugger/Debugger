@@ -2,12 +2,48 @@ from Baseagent import BaseAgent
 # abstract syntax trees it conversts python code into a tree structure so as to find patterns without execution
 import ast
 import json
-import sys
-import argparse
 from pathlib import Path
 import re
 
+
 class DetectorEngine:
+    """this class is the rule engine for a linter or security scanner — 
+    it identifies patterns like hardcoded secrets and unsafe file handling purely through AST traversal,
+     without ever executing the code. from line 13 to line 45 are the rule helpers."""
+
+    _SECRET_NAME_SUBSTRINGS = ("password", "secret", "token", "key")
+
+    @staticmethod
+    def _name_suggests_secret(identifier: str) -> bool:
+        lower = identifier.lower()
+        return any(s in lower for s in DetectorEngine._SECRET_NAME_SUBSTRINGS)
+
+    @staticmethod
+    def _is_string_or_bytes_literal(value: ast.expr) -> bool:
+        return isinstance(value, ast.Constant) and isinstance(value.value, (str, bytes))
+
+    @staticmethod
+    def _is_bare_open_call(node: ast.AST) -> bool:
+        return (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "open"
+        )
+
+    @staticmethod
+    def _open_calls_as_with_context_exprs(tree: ast.AST) -> set[int]:
+        """Line numbers of `open(...)` used directly as a with/async-with context expression."""
+        safe: set[int] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.With, ast.AsyncWith)):
+                for item in node.items:
+                    ctx = item.context_expr
+                    if DetectorEngine._is_bare_open_call(ctx):
+                        ln = getattr(ctx, "lineno", None)
+                        if ln is not None:
+                            safe.add(ln)
+        return safe
+    # initialzes the report for the detector engine
     def __init__(self, source_code: str):
         self.source = source_code
         self.report = {
@@ -15,7 +51,7 @@ class DetectorEngine:
             "critical_count": 0,
             "findings": []
         }
-    
+    # a method that adds findings to the list whenever a rule is violated and adds lines to make sure gemini can view and correct the lines using logic
     def add_findings(self, line, category, diagnosis, neutralization, severity="Warning"):
         if severity == "Error":
             self.report["status"] = "FLAGGED"
@@ -37,6 +73,8 @@ class DetectorEngine:
                              f"Fix syntax near: {e.text.strip() if e.text else 'EOF'}", "Error")
             return self.report
 
+        open_in_with = self._open_calls_as_with_context_exprs(tree)
+
         for node in ast.walk(tree):
             # Logic: Mutable Defaults
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -52,6 +90,50 @@ class DetectorEngine:
                     self.add_findings(node.lineno, "Security Risk", 
                                      f"Use of {node.func.id}", 
                                      "Use literal_eval or refactor logic.", "Error")
+
+            # Security: likely hardcoded secret (literal assigned to suspicious name)
+            if isinstance(node, ast.Assign):
+                if self._is_string_or_bytes_literal(node.value):
+                    for target in node.targets:
+                        if isinstance(target, ast.Name) and self._name_suggests_secret(target.id):
+                            self.add_findings(
+                                node.lineno,
+                                "Security Risk",
+                                f"Possible hardcoded secret in '{target.id}'",
+                                "Load from environment or a secrets manager (e.g. os.environ).",
+                                "Error",
+                            )
+
+            # Security: bare except
+            if isinstance(node, ast.ExceptHandler) and node.type is None:
+                self.add_findings(
+                    node.lineno,
+                    "Security Risk",
+                    "Bare except catches BaseException (e.g. KeyboardInterrupt, SystemExit).",
+                    "Use 'except Exception as e:' (or a narrower type) intentionally.",
+                    "Error",
+                )
+
+            # Maintainability: global
+            if isinstance(node, ast.Global):
+                names = ", ".join(node.names)
+                self.add_findings(
+                    node.lineno,
+                    "Maintainability Issue",
+                    f"Global variable usage: {names}",
+                    "Encapsulate state in a class or pass explicitly.",
+                    "Warning",
+                )
+
+            # API misuse: open() not used as with-context (heuristic)
+            if self._is_bare_open_call(node) and node.lineno not in open_in_with:
+                self.add_findings(
+                    node.lineno,
+                    "API Misuse",
+                    "open() used outside a with/async with context (file may not close).",
+                    "Use 'with open(...) as f:' (or assign to a context manager).",
+                    "Error",
+                )
 
             # Style: snake_case
             if isinstance(node, ast.FunctionDef) and not re.match(r'^[a-z_][a-z0-9_]*$', node.name):
@@ -115,21 +197,12 @@ class BugDetectionAgent(BaseAgent):
 When asked for structured JSON in a user message, follow that schema exactly and output only valid JSON in a ```json code block."""
         super().__init__(name="detection_Agent", instructions=instructions)
 
-    def _gemini_ast_comparison(
-        self, source_code: str, ast_report: dict
-    ) -> tuple[dict | None, str, str | None]:
-        """
-        Ask Gemini to review the code, compare against AST findings, return merged JSON.
-
-        Returns:
-            (parsed dict or None, raw model text, parse_error or None)
-        """
-        ast_payload = json.dumps(ast_report["findings"], indent=2)
-        prompt = f"""You are performing a dual review: static AST rules vs your own analysis.
+    def _build_ast_comparison_prompt(self, source_code: str, ast_findings_json: str) -> str:
+        return f"""You are performing a dual review: static AST rules vs your own analysis.
 
 ## AST findings (from automated pattern matching)
 ```json
-{ast_payload}
+{ast_findings_json}
 ```
 
 ## Full Python source under review
@@ -155,12 +228,33 @@ Reply with ONLY a JSON object in a ```json code block, no other prose. Schema:
   ]
 }}
 If there are no issues after review, use an empty merged_findings array."""
-        raw = self.run(prompt)
+
+    def _call_llm(self, prompt: str) -> str:
+        return self.run(prompt)
+
+    def _parse_comparison_json(self, raw: str) -> tuple[dict | None, str | None]:
         parsed = _extract_json_object(raw)
         if parsed is None:
-            return None, raw, "Could not parse JSON from Gemini response."
+            return None, "Could not parse JSON from Gemini response."
         if not isinstance(parsed, dict):
-            return None, raw, "Parsed JSON is not an object."
+            return None, "Parsed JSON is not an object."
+        return parsed, None
+
+    def _gemini_ast_comparison(
+        self, source_code: str, ast_report: dict
+    ) -> tuple[dict | None, str, str | None]:
+        """
+        Ask Gemini to review the code, compare against AST findings, return merged JSON.
+
+        Returns:
+            (parsed dict or None, raw model text, parse_error or None)
+        """
+        ast_findings_json = json.dumps(ast_report["findings"], indent=2)
+        prompt = self._build_ast_comparison_prompt(source_code, ast_findings_json)
+        raw = self._call_llm(prompt)
+        parsed, parse_err = self._parse_comparison_json(raw)
+        if parse_err:
+            return None, raw, parse_err
         return parsed, raw, None
 
     def audit_file(
