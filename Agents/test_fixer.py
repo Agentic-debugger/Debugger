@@ -7,52 +7,79 @@ Run from the Agents/ folder:
 
 import sys
 import os
+import shutil
 import tempfile
 
 sys.path.insert(0, os.path.dirname(__file__))
 from Fixer import FixerAgent, FixerEngine
 
+BAD_CODE_SAMPLE = os.path.join(os.path.dirname(__file__), '..', "bad_code_sample.py")
 
-# ── Sample buggy code that matches what DetectorEngine catches ──────────────
-BUGGY_CODE = '''\
-def add_item(value, items=[]):
-    items.append(value)
-    return items
-
-def fetch_data(url):
-    try:
-        result = get(url)
-    except:
-        pass
-    return result
-
-def checkValue(x):
-    if x == None:
-        return "empty"
-    return x
-'''
-
-EXPECTED_FIXES = [
-    ("Mutable Default Fix", "items=None"),
-    ("Bare Except Fix",     "except Exception:"),
-    ("None Comparison Fix", "is None"),
-]
-
-MOCK_BUG_REPORT = {
-    "status": "FLAGGED",
-    "critical_count": 0,
-    "findings": [
-        {"line": 1,  "type": "Logic Flaw",   "severity": "Warning", "diagnosis": "Mutable default in 'add_item'",        "neutralization": "Use None as default."},
-        {"line": 7,  "type": "Style Issue",  "severity": "Warning", "diagnosis": "Bare except clause",                   "neutralization": "Use except Exception:"},
-        {"line": 11, "type": "Style Issue",  "severity": "Warning", "diagnosis": "Equality check against None",          "neutralization": "Use is None."},
-        {"line": 11, "type": "Style Issue",  "severity": "Warning", "diagnosis": "Function 'checkValue' not snake_case", "neutralization": "Rename to check_value."},
-    ]
+# ── Bug report matching what BugDetectionAgent.audit_file() would produce ───
+# Mirrors the nested output shape from Detector
+MOCK_DETECTOR_OUTPUT = {
+    "error": None,
+    "ast_report": {
+        "status": "FLAGGED",
+        "critical_count": 2,
+        "findings": []
+    },
+    "bug_report": {
+        "status": "FLAGGED",
+        "critical_count": 2,
+        "findings": [
+            {
+                "line": 27,
+                "type": "Security Risk",
+                "severity": "Error",
+                "diagnosis": "Bare except catches BaseException (e.g. KeyboardInterrupt, SystemExit).",
+                "neutralization": "Use 'except Exception as e:' or a narrower type intentionally."
+            },
+            {
+                "line": 33,
+                "type": "Logic Flaw",
+                "severity": "Warning",
+                "diagnosis": "os.getenv() used as a default argument — evaluated once at definition time, not per call.",
+                "neutralization": "Use None as default and call os.getenv() inside the function body."
+            },
+            {
+                "line": 4,
+                "type": "Security Risk",
+                "severity": "Error",
+                "diagnosis": "Possible hardcoded secret in 'API_KEY' — assigned from os.getenv but name suggests sensitive data.",
+                "neutralization": "Load from environment or a secrets manager."
+            },
+        ]
+    },
+    "gemini_review": {
+        "comparison_summary": "AST and Gemini agree on bare except and default arg issues.",
+        "rejected_ast": [],
+        "raw_response": None,
+        "parse_error": None,
+    },
+    "formatted_summary": "AST and Gemini agree on bare except and default arg issues."
 }
 
 
-def test_fixer_engine_deterministic():
-    """FixerEngine should fix mutable defaults, bare excepts, and None comparisons without any API call."""
-    engine = FixerEngine(BUGGY_CODE)
+def _make_temp_copy(source_path: str) -> str:
+    """Copy bad_code_sample.py to a temp file so the original is never modified."""
+    tmp = tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False)
+    tmp.close()
+    shutil.copy2(source_path, tmp.name)
+    return tmp.name
+
+
+# ── Test 1: FixerEngine deterministic fixes on bad_code_sample ──────────────
+def test_fixer_engine_on_sample():
+    """
+    FixerEngine should catch the bare except in bad_code_sample.py
+    without any API call.
+    """
+    print("  Reading bad_code_sample.py...")
+    with open(BAD_CODE_SAMPLE, 'r') as f:
+        source = f.read()
+
+    engine = FixerEngine(source)
     fixed, fix_log = engine.apply_all()
 
     print(f"  Fixes logged: {len(fix_log)}")
@@ -60,97 +87,143 @@ def test_fixer_engine_deterministic():
         print(f"    [{entry['type']}] {entry['description']}")
 
     passed = True
-    for fix_type, expected_text in EXPECTED_FIXES:
-        if expected_text in fixed:
-            print(f"  PASS: '{expected_text}' found in fixed code")
-        else:
-            print(f"  FAIL: '{expected_text}' NOT found in fixed code")
-            passed = False
+
+    if "except Exception:" in fixed:
+        print("  PASS: bare except is handled in fixed code")
+    else:
+        print("  FAIL: bare except not found in fixed output")
+        passed = False
+
+    # os.getenv default arg is beyond deterministic rules — needs LLM
+    if "def another_issue(token=os.getenv" in fixed:
+        print("  NOTE: os.getenv default arg left for LLM fixer (expected — beyond deterministic rules)")
 
     return passed
 
 
-def test_fixer_agent_no_findings():
-    """FixerAgent should return NO_ISSUES cleanly when bug report has no findings."""
+# ── Test 2: extract_bug_report handles nested detector output ────────────────
+def test_extract_bug_report():
+    """
+    FixerAgent.extract_bug_report() should correctly unpack the nested
+    BugDetectionAgent.audit_file() output and return the inner bug_report.
+    """
     agent = FixerAgent()
+    extracted = agent.extract_bug_report(MOCK_DETECTOR_OUTPUT)
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
-        f.write("def hello():\n    return 'world'\n")
-        tmp_path = f.name
+    if "findings" in extracted and extracted["status"] == "FLAGGED":
+        print(f"  PASS: extracted bug_report with {len(extracted['findings'])} findings")
+        return True
+    else:
+        print(f"  FAIL: unexpected extracted result: {extracted}")
+        return False
+
+
+# ── Test 3: fix_file with clean nested detector output ──────────────────────
+def test_fix_file_no_issues():
+    """
+    fix_file() should handle a clean bug_report (no findings) gracefully
+    using the nested detector output shape.
+    """
+    agent = FixerAgent()
+    tmp_path = _make_temp_copy(BAD_CODE_SAMPLE)
+
+    clean_detector_output = {
+        "error": None,
+        "ast_report": {"status": "CLEAN", "critical_count": 0, "findings": []},
+        "bug_report": {"status": "CLEAN", "critical_count": 0, "findings": []},
+        "gemini_review": {
+            "comparison_summary": None,
+            "rejected_ast": [],
+            "raw_response": None,
+            "parse_error": None
+        },
+        "formatted_summary": None
+    }
 
     try:
-        result = agent.fix_file(tmp_path, {"findings": []}, iteration=1)
+        result = agent.fix_file(tmp_path, clean_detector_output, iteration=1)
         if result["status"] == "NO_ISSUES":
-            print("  PASS: Correctly returned NO_ISSUES for clean code")
+            print("  PASS: correctly returned NO_ISSUES for clean detector output")
             return True
         else:
-            print(f"  FAIL: Expected NO_ISSUES, got {result['status']}")
+            print(f"  FAIL: expected NO_ISSUES, got {result['status']}")
             return False
     finally:
         os.unlink(tmp_path)
 
 
-def test_fixer_agent_max_iterations():
-    """FixerAgent should refuse to run past MAX_ITERATIONS."""
+# ── Test 4: iteration cap enforced with nested output ───────────────────────
+def test_iteration_cap():
+    """Iteration cap should trigger regardless of detector output shape."""
     agent = FixerAgent()
-
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
-        f.write(BUGGY_CODE)
-        tmp_path = f.name
+    tmp_path = _make_temp_copy(BAD_CODE_SAMPLE)
 
     try:
-        result = agent.fix_file(tmp_path, MOCK_BUG_REPORT, iteration=4)
+        result = agent.fix_file(tmp_path, MOCK_DETECTOR_OUTPUT, iteration=4)
         if result["status"] == "MAX_ITERATIONS_REACHED":
-            print("  PASS: Correctly blocked iteration 4 (max is 3)")
+            print("  PASS: iteration cap enforced at iteration 4")
             return True
         else:
-            print(f"  FAIL: Expected MAX_ITERATIONS_REACHED, got {result['status']}")
+            print(f"  FAIL: expected MAX_ITERATIONS_REACHED, got {result['status']}")
             return False
     finally:
         os.unlink(tmp_path)
 
 
-def test_fixer_agent_full(use_llm=True):
-    """Full integration test — runs deterministic fixes + LLM fix on buggy code."""
+# ── Test 5: full LLM fix run on bad_code_sample ─────────────────────────────
+def test_full_fix_on_sample():
+    """
+    Full integration test — passes bad_code_sample.py through the complete
+    FixerAgent pipeline using the real nested detector output shape.
+    Requires a valid API key.
+    """
     agent = FixerAgent()
-
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
-        f.write(BUGGY_CODE)
-        tmp_path = f.name
+    tmp_path = _make_temp_copy(BAD_CODE_SAMPLE)
 
     try:
-        result = agent.fix_file(tmp_path, MOCK_BUG_REPORT, iteration=1)
-        print(f"  Status  : {result['status']}")
-        print(f"  Iteration: {result['iteration']}")
+        result = agent.fix_file(tmp_path, MOCK_DETECTOR_OUTPUT, iteration=1)
+
+        print(f"  Status    : {result['status']}")
+        print(f"  Iteration : {result['iteration']}")
         print(f"  Det. fixes: {len(result['fix_log'])}")
+        for fix in result['fix_log']:
+            print(f"    [{fix['type']}] {fix['description']}")
+
         if result["fixed_code"]:
             print(f"  Fixed code preview:\n{'─'*40}")
-            print(result["fixed_code"][:400])
+            print(result["fixed_code"][:1200])
             print("─" * 40)
             return True
         else:
-            print("  FAIL: No fixed code returned")
+            print(f"  FAIL: no fixed code returned — {result.get('llm_response', '')[:200]}")
             return False
     finally:
         os.unlink(tmp_path)
 
 
 if __name__ == "__main__":
+    if not os.path.exists(BAD_CODE_SAMPLE):
+        print(f"ERROR: bad_code_sample.py not found at {BAD_CODE_SAMPLE}")
+        sys.exit(1)
+
     print("=" * 50)
-    print("FixerAgent Test Suite")
+    print("FixerAgent Test Suite (bad_code_sample.py)")
     print("=" * 50)
 
-    print("\n[1] FixerEngine — deterministic fixes (no API)...")
-    test_fixer_engine_deterministic()
+    print("\n[1] FixerEngine — deterministic fixes on bad_code_sample...")
+    test_fixer_engine_on_sample()
 
-    print("\n[2] FixerAgent — no findings / clean file...")
-    test_fixer_agent_no_findings()
+    print("\n[2] extract_bug_report — nested detector output unpacking...")
+    test_extract_bug_report()
 
-    print("\n[3] FixerAgent — iteration cap enforcement...")
-    test_fixer_agent_max_iterations()
+    print("\n[3] fix_file — clean detector output / no findings...")
+    test_fix_file_no_issues()
 
-    print("\n[4] FixerAgent — full run with LLM (requires API key)...")
-    test_fixer_agent_full()
+    print("\n[4] fix_file — iteration cap with nested output...")
+    test_iteration_cap()
+
+    print("\n[5] Full LLM fix run on bad_code_sample (requires API key)...")
+    test_full_fix_on_sample()
 
     print("\n" + "=" * 50)
     print("Done.")

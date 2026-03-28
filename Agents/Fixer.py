@@ -23,16 +23,11 @@ class FixerEngine:
         })
 
     def fix_mutable_defaults(self, source: str) -> str:
-        """
-        Replace mutable default arguments ([], {}, set()) with None.
-        Matches the mutable default detection in DetectorEngine.
-        """
         try:
             tree = ast.parse(source)
         except SyntaxError:
-            return source  # Can't fix what won't parse
+            return source
 
-        # We work on lines directly since ast gives us line numbers
         lines = source.splitlines()
 
         for node in ast.walk(tree):
@@ -41,8 +36,6 @@ class FixerEngine:
                     if isinstance(default, (ast.List, ast.Dict, ast.Set)):
                         line_idx = default.lineno - 1
                         original = lines[line_idx]
-
-                        # Replace =[] ={}  =set() with =None on that line
                         fixed = re.sub(r'=\s*(\[\]|\{\}|set\(\))', '=None', original)
                         if fixed != original:
                             lines[line_idx] = fixed
@@ -55,19 +48,12 @@ class FixerEngine:
         return "\n".join(lines)
 
     def fix_bare_except(self, source: str) -> str:
-        """
-        Replace bare `except:` with `except Exception:` to avoid swallowing all errors.
-        """
         fixed, count = re.subn(r'\bexcept\s*:', 'except Exception:', source)
         if count:
             self.log_fix(0, "Bare Except Fix", f"Replaced {count} bare except clause(s) with 'except Exception:'")
         return fixed
 
     def fix_equality_to_none(self, source: str) -> str:
-        """
-        Replace `== None` with `is None` and `!= None` with `is not None`.
-        PEP 8 compliance — matches style checks in DetectorEngine.
-        """
         fixed = re.sub(r'==\s*None', 'is None', source)
         fixed, count = re.subn(r'!=\s*None', 'is not None', fixed)
         original_count = len(re.findall(r'==\s*None', source))
@@ -77,12 +63,6 @@ class FixerEngine:
         return fixed
 
     def apply_all(self) -> tuple[str, list]:
-        """
-        Run all deterministic fixers in sequence.
-
-        Returns:
-            Tuple of (fixed_source_code, fix_log)
-        """
         code = self.source
         code = self.fix_mutable_defaults(code)
         code = self.fix_bare_except(code)
@@ -92,15 +72,25 @@ class FixerEngine:
 
 class FixerAgent(BaseAgent):
     """
-    The Fixer Agent takes a bug report from BugDetectionAgent and the original
-    source code, applies deterministic fixes first via FixerEngine, then uses
-    the LLM to handle any remaining issues that require reasoning.
+    The Fixer Agent takes output from BugDetectionAgent and the original source
+    code, applies deterministic fixes first via FixerEngine, then uses the LLM
+    to handle any remaining issues that require reasoning.
 
-    Designed to slot into the SequentialAgent pipeline:
-        BugDetectionAgent → FixerAgent → Validator (linter) → DocumentationAgent
+    Pipeline:  BugDetectionAgent -> FixerAgent -> LoopAgent -> DocumentationAgent
+
+    Accepts both:
+      - A raw bug_report dict  {"findings": [...], "status": ..., "critical_count": ...}
+      - The full audit_file() output from BugDetectionAgent, which is a nested dict:
+            {
+                "error": ...,
+                "ast_report": {...},
+                "bug_report": {...},   <-- FixerAgent extracts this automatically
+                "gemini_review": {...},
+                "formatted_summary": ...,
+            }
     """
 
-    MAX_ITERATIONS = 3  
+    MAX_ITERATIONS = 3
 
     def __init__(self):
         instructions = """Role: You are a Precision Code Surgeon. Your job is to apply minimal, surgical fixes to buggy Python code.
@@ -124,32 +114,65 @@ Output Format (Required):
         super().__init__(name="fixer_agent", instructions=instructions)
         self.iteration = 0
 
+    @staticmethod
+    def extract_bug_report(detector_output: dict) -> dict:
+        """
+        Normalises whatever the detector returns into a plain bug_report dict.
+
+        BugDetectionAgent.audit_file() returns a nested structure — this method
+        pulls out the merged "bug_report" key. If a plain bug_report dict is
+        passed directly (has a "findings" key at top level) it is returned
+        unchanged so existing call-sites keep working.
+        """
+        # Plain bug report passed directly
+        if "findings" in detector_output:
+            return detector_output
+
+        # Full audit_file() output pull the merged/normalised bug_report
+        if "bug_report" in detector_output:
+            error = detector_output.get("error")
+            if error:
+                return {"findings": [], "status": "ERROR", "error": error}
+            return detector_output["bug_report"]
+
+        # Unrecognised shape return empty report rather than crash
+        return {"findings": [], "status": "CLEAN", "critical_count": 0}
+
     def _extract_code_from_response(self, response: str) -> str:
-        """
-        Pull out just the code block from the LLM's formatted response.
-        Looks for ```python ... ``` or ``` ... ``` blocks.
-        """
-        # Try ```python first, then plain ```
         match = re.search(r'```python\s*(.*?)```', response, re.DOTALL)
         if not match:
             match = re.search(r'```\s*(.*?)```', response, re.DOTALL)
         if match:
             return match.group(1).strip()
-        return response  # Fall back to full response if no code block found
+        return response
 
     def fix_file(self, filepath: str, bug_report: dict, iteration: int = 1) -> dict:
         """
-        Main entry point. Applies deterministic fixes first, then LLM fixes.
+        Main entry point. Accepts either a raw bug_report or the full
+        BugDetectionAgent.audit_file() output dict.
 
         Args:
-            filepath: Path to the Python file to fix.
-            bug_report: The structured report from BugDetectionAgent.
-            iteration: Current loop iteration (tracked by LoopAgent / pipeline).
+            filepath:   Path to the Python file to fix.
+            bug_report: Raw bug_report OR full audit_file() output.
+            iteration:  Current loop iteration (tracked by LoopAgent).
 
         Returns:
-            Dict with keys: fixed_code, fix_log, llm_response, iteration, status
+            Dict with keys: status, fixed_code, fix_log, llm_response, iteration
         """
         self.iteration = iteration
+
+        # Normalise detector output -> plain bug report
+        bug_report = self.extract_bug_report(bug_report)
+
+        # Surface any detector-level error before doing any work
+        if bug_report.get("status") == "ERROR":
+            return {
+                "status": "ERROR",
+                "iteration": iteration,
+                "fixed_code": None,
+                "fix_log": [],
+                "llm_response": bug_report.get("error", "Unknown detector error.")
+            }
 
         if iteration > self.MAX_ITERATIONS:
             return {
@@ -160,7 +183,6 @@ Output Format (Required):
                 "llm_response": "Max iteration limit reached. Returning best available output."
             }
 
-        # --- Load source ---
         path = Path(filepath)
         if not path.exists():
             return {
@@ -172,16 +194,14 @@ Output Format (Required):
             }
 
         source = path.read_text()
-
         print(f"[*] Fixer Agent — Iteration {iteration}/{self.MAX_ITERATIONS}")
 
-        # --- Step 1: Deterministic fixes (no API call) ---
+        # Step 1: Deterministic fixes (no API call)
         engine = FixerEngine(source)
         deterministic_fixed, fix_log = engine.apply_all()
-
         print(f"    Deterministic fixes applied: {len(fix_log)}")
 
-        # --- Step 2: LLM fixes for remaining / complex issues ---
+        # Step 2: LLM fixes for remaining / complex issues
         findings = bug_report.get("findings", [])
 
         if not findings:
@@ -220,19 +240,15 @@ Please apply fixes for any remaining issues in the bug report that were not alre
             "llm_response": llm_response
         }
 
-    def fix_and_save(self, filepath: str, bug_report: dict, iteration: int = 1) -> dict:
+    def fix_and_save(self, filepath: str, detector_output: dict, iteration: int = 1) -> dict:
         """
-        Runs fix_file() and writes the fixed code back to disk if successful.
-
-        Args:
-            filepath: Path to the Python file to fix.
-            bug_report: The structured report from BugDetectionAgent.
-            iteration: Current loop iteration.
+        Runs fix_file() and writes the fixed code to disk if successful.
+        Accepts either a raw bug_report or the full audit_file() output.
 
         Returns:
             Same dict as fix_file(), with an added 'saved_to' key if written.
         """
-        result = self.fix_file(filepath, bug_report, iteration)
+        result = self.fix_file(filepath, detector_output, iteration)
 
         if result["fixed_code"] and result["status"] in ("FIX_ATTEMPTED", "NO_ISSUES"):
             output_path = Path(filepath).with_stem(Path(filepath).stem + "_fixed")
