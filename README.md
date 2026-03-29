@@ -118,7 +118,20 @@ All LLM agents subclass **BaseAgent** (`Baseagent.py`): loads root `.env`, requi
 
 ### Documentation (`Documentation.py`)
 
-- **`document_run(...)`** — Reads the file, builds Markdown via **`build_markdown`** (deterministic: findings, loop history, final vs original code). Optional **`use_llm_formatter`** runs a polish pass. Writes to `--doc-output` or default `reports/<stem>_debug_report.md`. Returns `DOCUMENTED` or `ERROR` plus paths and markdown.
+**Role:** Produce a Markdown report for a single run: file path, loop outcome, detector findings, per-iteration fix log, and both final and original code.
+
+**Main API:** `document_run(source_path, bug_report, loop_result, original_code=None, output_path=None, use_llm_formatter=False)`
+
+**Flow:**
+
+1. Read the current file from disk (so the report stays aligned if the path was edited).
+2. **`build_markdown(...)`** — Deterministic sections; no LLM required for the base report.
+3. Optionally **`_polish_markdown`** via `BaseAgent.run` when `use_llm_formatter=True`.
+4. **`write_report`** persists the file and creates parent directories as needed.
+
+**Default output:** `<directory_containing_source>/reports/<source_stem>_debug_report.md` (overridden by CLI `--doc-output`).
+
+**Return value:** A `DocumentResult`-shaped dict — `status` (`DOCUMENTED` | `ERROR`), `markdown`, `output_path`, and on failure an `error` string. The **`DocumentResult`** / **`DocumentResultError`** `TypedDict`s in `Documentation.py` describe the shape.
 
 ## Tests
 
