@@ -1,30 +1,96 @@
+import os
 import json
+import math
 
-API_KEY = "super-secret-prod-key"
+# --- CONFIG ---
+API_KEY = "sk-demo-9999"          # bug 1: hardcoded secret
+DB_PASS = "admin123"              # bug 1: hardcoded secret
 
-cache = {}
+USERS = []                        # bug 2: global mutable state
+LOGIN_COUNT = 0                   # bug 2: global mutable state
 
 
-def BadFunction(items=[], config={}):
-    global cache
+# bug 3: mutable default argument
+# bug 4: bare except
+# bug 5: == None instead of is None
+def register_users(new_users=[]):
+    for user in new_users:
+        try:
+            if user.get("name") == None:
+                user["name"] = "anonymous"
+            USERS.append(user["name"])
+        except:
+            pass
 
+
+# bug 6: file handle never closed
+# bug 7: no specific exception
+def load_config(path):
+    f = open(path, "r")
+    data = json.loads(f.read())
+    return data
+
+
+# bug 8: eval() on untrusted input
+def calculate(expression):
+    return eval(expression)
+
+
+# bug 9: division by zero not guarded
+# bug 10: log of zero/negative not guarded
+# bug 11: bare except swallows the evidence
+def compute_score(value, weight):
     try:
-        if items == None:
-            items = []
-
-        data = open("tmp_data.txt", "w")
-        data.write("seed")
-        data.close()
-
-        eval("print('executed dynamic code')")
-
-        cache["last"] = items
-        return len(items) + len(config)
+        return (value / weight) + math.log(value)
     except:
-        return 0
+        return -1
 
 
-def another_issue(token="hardcoded-token-123"):
-    if token != None:
-        return json.loads("{\"ok\": true}")
-    return {}
+# bug 12: exec() used as a "feature"
+def run_admin_command(cmd):
+    exec(cmd)
+
+
+# bug 13: global keyword + mutating shared state
+def log_login(username):
+    global LOGIN_COUNT
+    LOGIN_COUNT += 1
+    print(f"{username} logged in. Total logins: {LOGIN_COUNT}")
+
+
+# bug 14: PascalCase function name (should be snake_case)
+def ProcessAll(users=[], commands=[]):    # bug 3 again: mutable defaults
+    register_users(users)
+    for cmd in commands:
+        run_admin_command(cmd)            # bug 12 again: exec() on each command
+    compute_score(0, 0)                   # bug 9+10: zero inputs, silent failure
+    compute_score(-5, 1)                  # bug 10: log of negative, silent failure
+
+
+if __name__ == "__main__":
+    # demonstrates bug 3: list is shared across calls
+    register_users()
+    register_users()
+
+    # demonstrates bug 8: arbitrary code runs
+    print(calculate("1 + 1"))            # fine
+    print(calculate("__import__('os').system('echo hacked')"))  # not fine
+
+    # demonstrates bug 6: file left open on error
+    try:
+        cfg = load_config("missing.json")
+    except:                              # bug 4 again: bare except
+        print("config missing")
+
+    # demonstrates bug 9/10/11
+    print(compute_score(10, 2))          # works
+    print(compute_score(0, 1))           # log(0) — returns -1 silently
+    print(compute_score(5, 0))           # div/0 — returns -1 silently
+
+    log_login("alice")
+    log_login("bob")
+
+    ProcessAll(
+        users=[{"name": "carol"}, {}],
+        commands=["x = 1 + 1"],          # exec() runs this
+    )
