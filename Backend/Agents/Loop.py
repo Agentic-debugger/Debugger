@@ -1,7 +1,16 @@
 from pathlib import Path
 import ast
+from collections.abc import Callable
 
 from Fixer import FixerAgent
+
+
+def _rail_fix_index(iteration: int) -> int:
+    return 2 + 2 * (iteration - 1)
+
+
+def _rail_validate_index(iteration: int) -> int:
+    return _rail_fix_index(iteration) + 1
 
 
 class LoopAgent:
@@ -56,7 +65,13 @@ class LoopAgent:
             "findings": findings,
         }
 
-    def run_loop(self, filepath: str, bug_report: dict, validate_fn=None) -> dict:
+    def run_loop(
+        self,
+        filepath: str,
+        bug_report: dict,
+        validate_fn=None,
+        progress_cb: Callable[[dict], None] | None = None,
+    ) -> dict:
         """
         Run iterative fix/validate loop for a file.
 
@@ -96,6 +111,18 @@ class LoopAgent:
         history = []
 
         for iteration in range(1, effective_max + 1):
+            if progress_cb:
+                progress_cb(
+                    {
+                        "stage": "fixer",
+                        "phase": "fixing",
+                        "iteration": iteration,
+                        "max_iterations": effective_max,
+                        "message": f"Fix pass {iteration}: applying patches from bug report…",
+                        "rail_index": _rail_fix_index(iteration),
+                    }
+                )
+
             fix_result = self.fixer.fix_file(filepath, current_bug_report, iteration=iteration)
             status = fix_result.get("status")
 
@@ -131,6 +158,18 @@ class LoopAgent:
 
             # Persist for next iteration context.
             path.write_text(fixed_code)
+
+            if progress_cb:
+                progress_cb(
+                    {
+                        "stage": "fixer",
+                        "phase": "detection",
+                        "iteration": iteration,
+                        "max_iterations": effective_max,
+                        "message": f"Validator / re-scan after fix pass {iteration}…",
+                        "rail_index": _rail_validate_index(iteration),
+                    }
+                )
 
             validation_errors = validator(fixed_code)
             current_error_count = len(validation_errors)

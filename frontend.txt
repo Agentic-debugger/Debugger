@@ -1,0 +1,214 @@
+  Project Summary (for context)                                                                                                                                                                                                                                                                                                                                                                               
+  SP202 is a multi-agent pipeline that:                                                                                                                                                                  1. Detects bugs, security issues, and logic flaws in Python code (AST + Gemini LLM)                                                                                                                    2. Fixes them iteratively in a fix-validate loop (up to 3 passes)                                                                                                                                      3. Documents the entire process as a Markdown report                                                                                                                                                                                                                                                                                                                                                          Currently CLI-only. uvicorn is in requirements.txt — the backend is ready to expose a FastAPI REST layer.                                                                                                                                                                                                                                                                                                   
+  ---
+  UI/UX Requirements
+
+  ---
+  1. Input Panel
+
+  ┌───────────────────┬───────────────────────────────────────────────────────────────────────────┐
+  │    Requirement    │                                  Detail                                   │
+  ├───────────────────┼───────────────────────────────────────────────────────────────────────────┤
+  │ Code input        │ Monaco/CodeMirror editor with Python syntax highlighting + line numbers   │
+  ├───────────────────┼───────────────────────────────────────────────────────────────────────────┤
+  │ File upload       │ Drag-and-drop .py file upload as primary upload path                      │
+  ├───────────────────┼───────────────────────────────────────────────────────────────────────────┤
+  │ Paste support     │ Fallback textarea accepting raw Python code                               │
+  ├───────────────────┼───────────────────────────────────────────────────────────────────────────┤
+  │ Config toggles    │ Checkboxes: Use Gemini Detection, Use LLM Doc Formatter, JSON output mode │
+  ├───────────────────┼───────────────────────────────────────────────────────────────────────────┤
+  │ Iteration control │ Numeric input for MAX_ITERATIONS (default 3, range 1–10)                  │
+  ├───────────────────┼───────────────────────────────────────────────────────────────────────────┤
+  │ Run button        │ Primary CTA — disabled until code is loaded, shows spinner when active    │
+  └───────────────────┴───────────────────────────────────────────────────────────────────────────┘
+
+  ---
+  2. Pipeline Progress Tracker
+
+  The pipeline has 3 discrete phases. Users need real-time feedback.
+
+  ┌──────────────────────┬──────────────────────────────────────────────────────────────────────────┐
+  │     Requirement      │                                  Detail                                  │
+  ├──────────────────────┼──────────────────────────────────────────────────────────────────────────┤
+  │ Phase stepper        │ Horizontal step indicator: Detection → Fix Loop → Documentation          │
+  ├──────────────────────┼──────────────────────────────────────────────────────────────────────────┤
+  │ Phase states         │ Each step has: pending, active (with spinner), done, error               │
+  ├──────────────────────┼──────────────────────────────────────────────────────────────────────────┤
+  │ Live iteration badge │ During Fix Loop: show Iteration 1 / 3, updating in real time             │
+  ├──────────────────────┼──────────────────────────────────────────────────────────────────────────┤
+  │ Error count trend    │ Small sparkline or counter showing errors going 12 → 7 → 0 per iteration │
+  ├──────────────────────┼──────────────────────────────────────────────────────────────────────────┤
+  │ Status label         │ Emit final loop status: CLEAN, NO_IMPROVEMENT, MAX_ITERATIONS_REACHED    │
+  ├──────────────────────┼──────────────────────────────────────────────────────────────────────────┤
+  │ WebSocket / SSE      │ Stream progress events from backend rather than polling                  │
+  └──────────────────────┴──────────────────────────────────────────────────────────────────────────┘
+
+  ---
+  3. Detection Results Panel
+
+  Maps directly to bug_report.findings[].
+
+  ┌────────────────────┬────────────────────────────────────────────────────────────────┐
+  │    Requirement     │                             Detail                             │
+  ├────────────────────┼────────────────────────────────────────────────────────────────┤
+  │ Findings table     │ Columns: Line | Type | Severity | Diagnosis | Suggested Fix    │
+  ├────────────────────┼────────────────────────────────────────────────────────────────┤
+  │ Severity badges    │ Color-coded pills: red Error, yellow Warning                   │
+  ├────────────────────┼────────────────────────────────────────────────────────────────┤
+  │ Click-to-jump      │ Clicking a finding row highlights that line in the code editor │
+  ├────────────────────┼────────────────────────────────────────────────────────────────┤
+  │ Critical count     │ Prominent stat chip: 3 Critical Issues Found                   │
+  ├────────────────────┼────────────────────────────────────────────────────────────────┤
+  │ AST vs. Gemini tag │ Badge on each finding indicating source: AST or Gemini         │
+  ├────────────────────┼────────────────────────────────────────────────────────────────┤
+  │ Empty state        │ If no findings: green checkmark + "No issues detected"         │
+  └────────────────────┴────────────────────────────────────────────────────────────────┘
+
+  ---
+  4. Fix Loop History Panel
+
+  Maps to loop_result.history[].
+
+  ┌───────────────────────┬─────────────────────────────────────────────────────────────────────────┐
+  │      Requirement      │                                 Detail                                  │
+  ├───────────────────────┼─────────────────────────────────────────────────────────────────────────┤
+  │ Iteration timeline    │ Vertical accordion: Iteration 1, 2, 3 — each expandable                 │
+  ├───────────────────────┼─────────────────────────────────────────────────────────────────────────┤
+  │ Per-iteration summary │ Fix Status, Errors Before, Errors After, list of applied fixes          │
+  ├───────────────────────┼─────────────────────────────────────────────────────────────────────────┤
+  │ Fix log table         │ Sub-table per iteration: Line | Rule Type | Description of fix applied  │
+  ├───────────────────────┼─────────────────────────────────────────────────────────────────────────┤
+  │ Delta indicator       │ Show −5 errors or +0 errors change at a glance                          │
+  ├───────────────────────┼─────────────────────────────────────────────────────────────────────────┤
+  │ Final status chip     │ End-of-loop badge: CLEAN (green) / NO_IMPROVEMENT (amber) / ERROR (red) │
+  └───────────────────────┴─────────────────────────────────────────────────────────────────────────┘
+
+  ---
+  5. Code Diff Viewer
+
+  ┌─────────────────────┬───────────────────────────────────────────────────────┐
+  │     Requirement     │                        Detail                         │
+  ├─────────────────────┼───────────────────────────────────────────────────────┤
+  │ Side-by-side diff   │ Original (left) vs. Final Fixed Code (right)          │
+  ├─────────────────────┼───────────────────────────────────────────────────────┤
+  │ Inline diff mode    │ Toggle for unified diff view                          │
+  ├─────────────────────┼───────────────────────────────────────────────────────┤
+  │ Syntax highlighting │ Python coloring in both panes                         │
+  ├─────────────────────┼───────────────────────────────────────────────────────┤
+  │ Copy button         │ One-click copy of the fixed code                      │
+  ├─────────────────────┼───────────────────────────────────────────────────────┤
+  │ Line numbers        │ Preserved for traceability against detection findings │
+  └─────────────────────┴───────────────────────────────────────────────────────┘
+
+  ---
+  6. Report Viewer
+
+  Maps to documentation_result.markdown.
+
+  ┌───────────────────┬──────────────────────────────────────────────────────────────────┐
+  │    Requirement    │                              Detail                              │
+  ├───────────────────┼──────────────────────────────────────────────────────────────────┤
+  │ Rendered Markdown │ Full report with tables, code blocks, headings rendered properly │
+  ├───────────────────┼──────────────────────────────────────────────────────────────────┤
+  │ Raw toggle        │ Switch between rendered and raw markdown view                    │
+  ├───────────────────┼──────────────────────────────────────────────────────────────────┤
+  │ Download options  │ Export as .md, .pdf, or .html                                    │
+  ├───────────────────┼──────────────────────────────────────────────────────────────────┤
+  │ Report path       │ Display where the file was saved (e.g., reports/file_report.md)  │
+  └───────────────────┴──────────────────────────────────────────────────────────────────┘
+
+  ---
+  7. Run History & Management
+
+  ┌────────────────────┬──────────────────────────────────────────────────────────────────┐
+  │    Requirement     │                              Detail                              │
+  ├────────────────────┼──────────────────────────────────────────────────────────────────┤
+  │ Run list           │ Table of past runs: filename, timestamp, status, iteration count │
+  ├────────────────────┼──────────────────────────────────────────────────────────────────┤
+  │ Status filter      │ Filter by DONE, PARTIAL, ERROR                                   │
+  ├────────────────────┼──────────────────────────────────────────────────────────────────┤
+  │ Re-run action      │ Button to re-run a previous file with same or new config         │
+  ├────────────────────┼──────────────────────────────────────────────────────────────────┤
+  │ Delete run         │ Remove a run record from history                                 │
+  ├────────────────────┼──────────────────────────────────────────────────────────────────┤
+  │ Persistent storage │ Store history in localStorage or a lightweight backend DB        │
+  └────────────────────┴──────────────────────────────────────────────────────────────────┘
+
+  ---
+  8. Settings & Configuration
+
+  ┌────────────────┬──────────────────────────────────────────────────────────────────────────────┐
+  │  Requirement   │                                    Detail                                    │
+  ├────────────────┼──────────────────────────────────────────────────────────────────────────────┤
+  │ API key input  │ Masked text field for GOOGLE_API_KEY — stored securely (not in localStorage) │
+  ├────────────────┼──────────────────────────────────────────────────────────────────────────────┤
+  │ Key validation │ Test button that pings Gemini to verify the key works                        │
+  ├────────────────┼──────────────────────────────────────────────────────────────────────────────┤
+  │ Default config │ Persist user toggle preferences (LLM on/off, max iterations)                 │
+  ├────────────────┼──────────────────────────────────────────────────────────────────────────────┤
+  │ Theme toggle   │ Light / Dark mode                                                            │
+  └────────────────┴──────────────────────────────────────────────────────────────────────────────┘
+
+  ---
+  9. Batch Mode (advanced)
+
+  ┌────────────────────┬─────────────────────────────────────────────────────────────────────────┐
+  │    Requirement     │                                 Detail                                  │
+  ├────────────────────┼─────────────────────────────────────────────────────────────────────────┤
+  │ Multi-file upload  │ Upload a .zip or multiple .py files                                     │
+  ├────────────────────┼─────────────────────────────────────────────────────────────────────────┤
+  │ Batch progress     │ Progress: 3 / 10 files processed                                        │
+  ├────────────────────┼─────────────────────────────────────────────────────────────────────────┤
+  │ Aggregate results  │ Summary table across all files: total bugs found, total fixed, failures │
+  ├────────────────────┼─────────────────────────────────────────────────────────────────────────┤
+  │ Per-file drilldown │ Click a file row to see its individual result panels                    │
+  └────────────────────┴─────────────────────────────────────────────────────────────────────────┘
+
+  ---
+  10. General UX Principles
+
+  ┌────────────────────────┬──────────────────────────────────────────────────────────────────────┐
+  │       Principle        │                             Application                              │
+  ├────────────────────────┼──────────────────────────────────────────────────────────────────────┤
+  │ Progressive disclosure │ Show summary first; expand for details (don't dump all data upfront) │
+  ├────────────────────────┼──────────────────────────────────────────────────────────────────────┤
+  │ Error transparency     │ Surface PipelineState.errors[] in a dismissible error banner         │
+  ├────────────────────────┼──────────────────────────────────────────────────────────────────────┤
+  │ Non-blocking UI        │ Long-running pipeline runs in background; user can navigate away     │
+  ├────────────────────────┼──────────────────────────────────────────────────────────────────────┤
+  │ Accessible severity    │ Never rely on color alone — use icons + labels for severity          │
+  ├────────────────────────┼──────────────────────────────────────────────────────────────────────┤
+  │ Keyboard shortcuts     │ Ctrl+Enter to run, Ctrl+D to download report                         │
+  ├────────────────────────┼──────────────────────────────────────────────────────────────────────┤
+  │ Responsive layout      │ Two-column on desktop, stacked on tablet/mobile                      │
+  └────────────────────────┴──────────────────────────────────────────────────────────────────────┘
+
+  ---
+  Recommended Tech Stack for Frontend
+
+  Framework:     React (or Next.js for SSR)
+  Editor:        Monaco Editor (same as VS Code)
+  Diff viewer:   react-diff-viewer or Monaco's built-in diff
+  Markdown:      react-markdown + remark-gfm
+  Charts:        Recharts (for error trend sparklines)
+  Styling:       Tailwind CSS + shadcn/ui components
+  Real-time:     Server-Sent Events (SSE) from FastAPI backend
+  State mgmt:    Zustand or React Context
+
+  ---
+  Suggested Page/View Structure
+
+  / (Home)
+  ├── /run           → Input Panel + Pipeline Progress
+  ├── /results/:id   → Detection | Fix History | Diff | Report tabs
+  ├── /history       → All past runs list
+  ├── /batch         → Batch upload & aggregate results
+  └── /settings      → API key, preferences, theme
+
+  ---
+  The most impactful things to build first, in order:
+
+  1. Input + Run trigger — connects directly to your existing pipeline
+  2. Pipeline phase stepper + live progress — highest perceived value
+  3. Findings table + diff viewer — core deliverable users care about
+  4. Report viewer + export — completes the workflow loop

@@ -1,7 +1,25 @@
+from __future__ import annotations
+
+from collections.abc import Callable
 from pathlib import Path
 import sys
 
-from state import PipelineState
+try:
+    from .state import PipelineState
+except ImportError:  # Allows direct module execution without package context
+    from state import PipelineState
+
+# Rail indices match Frontend `railNodeCount` / `buildRailNodes` (detector/fixer loop UI).
+def _rail_fix_index(iteration: int) -> int:
+    return 2 + 2 * (iteration - 1)
+
+
+def _rail_validate_index(iteration: int) -> int:
+    return _rail_fix_index(iteration) + 1
+
+
+def _rail_doc_index(max_iterations: int) -> int:
+    return 2 + 2 * max_iterations
 
 
 def _ensure_project_import_paths(root: Path) -> None:
@@ -19,6 +37,8 @@ def run_pipeline(
     use_llm_doc_formatter: bool = False,
     documentation_output_path: str | None = None,
     use_gemini_detection_review: bool = True,
+    max_iterations: int | None = None,
+    progress_cb: Callable[[dict], None] | None = None,
 ) -> PipelineState:
     """
     End-to-end run:
@@ -48,10 +68,20 @@ def run_pipeline(
         state.finish("ERROR")
         return state
 
+    cfg_max_iter = max_iterations if max_iterations is not None else 3
+
+    def emit(ev: dict) -> None:
+        if progress_cb:
+            ev.setdefault("max_iterations", cfg_max_iter)
+            progress_cb(ev)
+
     # 1) Detect: AST pass, then Gemini compares + merges findings for FixerAgent
     detection_agent = BugDetectionAgent()
     audit = detection_agent.audit_file(
-        str(source), use_gemini_review=use_gemini_detection_review
+        str(source),
+        use_gemini_review=use_gemini_detection_review,
+        progress_cb=emit,
+        max_iterations_for_ui=cfg_max_iter,
     )
     if audit.get("error"):
         state.errors.append(audit["error"])
@@ -63,14 +93,23 @@ def run_pipeline(
     state.detection_gemini_review = audit.get("gemini_review") or {}
 
     # 2) Fix loop + validation
-    loop = LoopAgent()
+    loop = LoopAgent(max_iterations=max_iterations)
     state.loop_result = loop.run_loop(
         filepath=str(source),
         bug_report=state.bug_report,
         validate_fn=validate_source,
+        progress_cb=emit,
     )
 
     # 3) Documentation
+    emit(
+        {
+            "stage": "documentation",
+            "phase": "documentation",
+            "message": "Writing documentation and report…",
+            "rail_index": _rail_doc_index(cfg_max_iter),
+        }
+    )
     try:
         doc_agent = DocumentationAgent()
         state.documentation_result = doc_agent.document_run(

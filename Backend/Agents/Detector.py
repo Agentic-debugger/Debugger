@@ -262,6 +262,8 @@ If there are no issues after review, use an empty merged_findings array."""
         filepath: str,
         *,
         use_gemini_review: bool = True,
+        progress_cb: object | None = None,
+        max_iterations_for_ui: int = 3,
     ) -> dict:
         """
         Run AST detection, have Gemini review the code and merge with AST results.
@@ -298,6 +300,18 @@ If there are no issues after review, use an empty merged_findings array."""
 
         code = path.read_text()
         engine = DetectorEngine(code)
+
+        if progress_cb:
+            progress_cb(
+                {
+                    "stage": "detector",
+                    "phase": "detection",
+                    "message": "Running AST analysis (rule engine)…",
+                    "rail_index": 0,
+                    "max_iterations": max_iterations_for_ui,
+                }
+            )
+
         ast_report = engine.analyze()
 
         gemini_review = {
@@ -308,6 +322,16 @@ If there are no issues after review, use an empty merged_findings array."""
         }
 
         if not use_gemini_review:
+            if progress_cb:
+                progress_cb(
+                    {
+                        "stage": "detector",
+                        "phase": "detection",
+                        "message": "Gemini cross-review skipped (disabled in settings).",
+                        "rail_index": 1,
+                        "max_iterations": max_iterations_for_ui,
+                    }
+                )
             return {
                 "error": None,
                 "ast_report": ast_report,
@@ -315,6 +339,17 @@ If there are no issues after review, use an empty merged_findings array."""
                 "gemini_review": gemini_review,
                 "formatted_summary": None,
             }
+
+        if progress_cb:
+            progress_cb(
+                {
+                    "stage": "detector",
+                    "phase": "detection",
+                    "message": "Gemini cross-review & merge with AST findings…",
+                    "rail_index": 1,
+                    "max_iterations": max_iterations_for_ui,
+                }
+            )
 
         parsed, raw_text, parse_err = self._gemini_ast_comparison(code, ast_report)
         gemini_review["raw_response"] = raw_text

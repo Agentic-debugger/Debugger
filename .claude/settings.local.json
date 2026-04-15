@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npm audit:*)",
+      "Bash(claude skill:*)",
+      "Read(//c/Users/omode/SP202/Frontend/%USERPROFILE%/.claude/**)",
+      "Read(//c/Users/omode/.claude/skills/**)",
+      "Bash(python \"C:/Users/omode/.claude/skills/ui-ux-pro-max/scripts/search.py\" \"developer tool code debugger AI agent dashboard dark mode SaaS\" --design-system -p \"SP202\" -f markdown)",
+      "Bash(python \"C:/Users/omode/.claude/skills/ui-ux-pro-max/scripts/search.py\" \"developer tool code debugger AI agent dashboard dark mode SaaS\" --design-system -p \"SP202\" --persist)",
+      "Bash(python \"C:/Users/omode/.claude/skills/ui-ux-pro-max/scripts/search.py\" \"dashboard admin panel data table code editor\" --stack nextjs)",
+      "Bash(python \"C:/Users/omode/.claude/skills/ui-ux-pro-max/scripts/search.py\" \"loading states animation accessibility keyboard\" --domain ux)",
+      "Bash(python \"C:/Users/omode/.claude/skills/ui-ux-pro-max/scripts/search.py\" \"trend comparison timeline sparkline\" --domain chart)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)",
+      "Bash(python \"C:/Users/omode/.claude/skills/ui-ux-pro-max/scripts/search.py\" \"developer tool SaaS landing page hero code input dark mode\" --domain landing)",
+      "Bash(python \"C:/Users/omode/.claude/skills/ui-ux-pro-max/scripts/search.py\" \"dark mode glassmorphism developer tool minimal\" --domain style)",
+      "Bash(python \"C:/Users/omode/.claude/skills/ui-ux-pro-max/scripts/search.py\" \"developer tool SaaS dark mode professional code analysis AI\" --design-system -p \"SP202\" -f markdown)",
+      "Bash(python \"C:/Users/omode/.claude/skills/ui-ux-pro-max/scripts/search.py\" \"SaaS developer tool professional minimal dark\" --domain style -n 5)",
+      "Bash(python \"C:/Users/omode/.claude/skills/ui-ux-pro-max/scripts/search.py\" \"hero CTA developer tool product\" --domain landing -n 5)",
+      "Bash(python \"C:/Users/omode/.claude/skills/ui-ux-pro-max/scripts/search.py\" \"professional spacing layout typography hierarchy\" --domain ux -n 5)",
+      "Bash(python \"C:/Users/omode/.claude/skills/ui-ux-pro-max/scripts/search.py\" \"developer tool code technical monospace\" --domain typography -n 3)",
+      "Bash(sed -i \"s/variant={result.status === 'ERROR' ? 'error' : result.status === 'PARTIAL' ? 'warning' : 'clean'}/variant={result.status === 'ERROR' ? 'error' : result.status === 'PARTIAL' ? 'warn' : 'ok'}/g\" \"app/results/[id]/page.tsx\")",
+      "Bash(sed -i \"s/'CLEAN' ? 'clean'/'CLEAN' ? 'ok'/g\" \"app/results/[id]/page.tsx\")",
+      "Bash(sed -i \"s/: 'warning'/: 'warn'/g\" \"app/results/[id]/page.tsx\")",
+      "Bash(python \"C:/Users/omode/.claude/skills/ui-ux-pro-max/scripts/search.py\" \"black white monochrome minimal professional\" --domain style -n 5)",
+      "Bash(python \"C:/Users/omode/.claude/skills/ui-ux-pro-max/scripts/search.py\" \"black white minimalism swiss professional SaaS\" --domain color -n 3)"
+    ]
+  }
+}
