@@ -5,7 +5,6 @@ import Link from "next/link";
 import * as Tabs from "@radix-ui/react-tabs";
 import {
   Play,
-  Pickaxe,
   Shield,
   Wrench,
   FileText,
@@ -23,6 +22,29 @@ import {
   WandSparkles,
   FileCheck,
 } from "lucide-react";
+
+function LogoIcon({ size = 40 }: { size?: number }) {
+  const id = `lg-${size}`;
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 40" fill="none" aria-hidden>
+      <rect width="40" height="40" rx="10" fill={`url(#${id})`} />
+      {/* left angle bracket */}
+      <path d="M15 13L10 20L15 27" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      {/* right angle bracket */}
+      <path d="M25 13L30 20L25 27" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      {/* scan ring — suggests analysis */}
+      <circle cx="20" cy="20" r="4" stroke="rgba(255,255,255,0.55)" strokeWidth="1.5" strokeDasharray="3 2.2" />
+      {/* center dot */}
+      <circle cx="20" cy="20" r="1.5" fill="white" />
+      <defs>
+        <linearGradient id={id} x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#18181B" />
+          <stop offset="100%" stopColor="#09090B" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
 
 import { CodeEditor } from "@/components/run/CodeEditor";
 import { ConfigPanel } from "@/components/run/ConfigPanel";
@@ -182,20 +204,13 @@ export default function Home() {
     <div className="min-h-screen bg-bg">
       {/* ── Navbar ─────────────────────────────────────── */}
       <header
-        className="fixed inset-x-0 top-0 z-50 h-16 border-b border-line bg-black/85 backdrop-blur-md"
+        className="fixed inset-x-0 top-0 z-50 h-16 border-b border-line backdrop-blur-md"
+        style={{ background: "rgba(255,255,255,0.92)" }}
       >
         <div className="wrap max-w-6xl h-full flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3 group">
-            <div
-              className="w-11 h-11 rounded-xl flex items-center justify-center transition-colors group-hover:border-accent/40"
-              style={{
-                background: "linear-gradient(135deg, rgba(168,85,247,0.14) 0%, rgba(168,85,247,0.06) 100%)",
-                border: "1px solid rgba(168,85,247,0.28)",
-              }}
-            >
-              <Pickaxe className="w-6 h-6 text-accent" strokeWidth={2.25} />
-            </div>
-            <span className="font-sans text-lg font-semibold tracking-tight text-t-1">
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <LogoIcon size={36} />
+            <span className="font-heading text-base font-bold tracking-tight text-t-1">
               D<span className="text-accent">IG</span>
             </span>
           </Link>
@@ -248,63 +263,43 @@ export default function Home() {
         </div>
       </header>
 
-      {/* ── Hero (dark canvas + soft violet light) ───────────────── */}
+      {/* ── Hero ───────────────────────────────────────────────────── */}
       <section className="pt-36 pb-24 relative overflow-hidden">
-        {/* Cool lavender mist on black */}
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(180deg, rgba(250, 245, 255, 0.055) 0%, rgba(237, 233, 254, 0.03) 24%, transparent 55%)",
-          }}
-        />
         {/* Subtle dot grid */}
         <div
           className="pointer-events-none absolute inset-0"
           style={{
-            backgroundImage:
-              "radial-gradient(rgba(168,85,247,0.09) 1px, transparent 1px)",
+            backgroundImage: "radial-gradient(rgba(0,0,0,0.06) 1px, transparent 1px)",
             backgroundSize: "28px 28px",
           }}
         />
-        {/* Spotlight — white‑violet glow */}
+        {/* Very soft top gradient */}
         <div
-          className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 w-[min(100%,920px)] h-[420px]"
-          style={{
-            background:
-              "radial-gradient(ellipse 75% 55% at 50% 0%, rgba(253,250,255,0.07) 0%, rgba(196,181,253,0.06) 38%, rgba(168,85,247,0.04) 55%, transparent 75%)",
-          }}
+          className="pointer-events-none absolute inset-x-0 top-0 h-64"
+          style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.02) 0%, transparent 100%)" }}
         />
 
         <div className="wrap max-w-6xl relative text-center">
-          {/* Label */}
+          {/* Label pill */}
           <div
-            className="inline-flex items-center gap-2 mb-6"
+            className="inline-flex items-center gap-2 mb-8"
             style={{
-              background: "rgba(168,85,247,0.09)",
-              border: "1px solid rgba(168,85,247,0.22)",
+              background: "rgba(9,9,11,0.05)",
+              border: "1px solid rgba(9,9,11,0.12)",
               borderRadius: "999px",
-              padding: "4px 12px",
+              padding: "5px 14px",
             }}
           >
-            <span
-              className="w-1.5 h-1.5 rounded-full bg-accent"
-              style={{ animation: "pulse 2s infinite" }}
-            />
-            <span
-              className="font-sans text-sm font-medium text-accent tracking-wide"
-            >
+            <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+            <span className="font-mono text-xs font-medium text-t-2 tracking-wider uppercase">
               Powered by Gemini 2.5 Flash
             </span>
           </div>
 
           {/* Headline */}
           <h1
-            className="font-sans font-semibold mb-5 text-t-1 tracking-[-0.045em]"
-            style={{
-              fontSize: "clamp(40px, 8vw, 64px)",
-              lineHeight: "1.06",
-            }}
+            className="font-heading font-bold mb-6 text-t-1 tracking-[-0.05em]"
+            style={{ fontSize: "clamp(42px, 8.5vw, 70px)", lineHeight: "1.04" }}
           >
             Debug Python code,
             <br />
@@ -313,28 +308,27 @@ export default function Home() {
 
           {/* Sub */}
           <p
-            className="mx-auto mb-8 text-t-2"
-            style={{ maxWidth: "520px", fontSize: "17px", lineHeight: "1.65" }}
+            className="mx-auto mb-10 text-t-2"
+            style={{ maxWidth: "500px", fontSize: "17px", lineHeight: "1.7" }}
           >
             Paste your code. DIG detects security risks, logic flaws, and style
             violations — then fixes and documents everything.
           </p>
 
           {/* CTA row */}
-          <div className="flex items-center justify-center gap-3">
+          <div className="flex flex-wrap items-center justify-center gap-3">
             <button
               onClick={() => scrollTo(editorRef)}
-              className="btn-primary btn-lg flex items-center gap-2"
+              className="btn-primary flex items-center gap-2"
+              style={{ height: "44px", padding: "0 24px", fontSize: "15px" }}
             >
               <Play className="w-4 h-4" />
               Analyse my code
             </button>
             <button
-              onClick={() => {
-                setCode(SAMPLE);
-                scrollTo(editorRef);
-              }}
-              className="btn-secondary btn-lg flex items-center gap-2"
+              onClick={() => { setCode(SAMPLE); scrollTo(editorRef); }}
+              className="btn-secondary flex items-center gap-2"
+              style={{ height: "44px", padding: "0 24px", fontSize: "15px" }}
             >
               Load a buggy example
               <ChevronDown className="w-4 h-4" />
@@ -342,27 +336,26 @@ export default function Home() {
           </div>
 
           {/* Social proof strip */}
-          <div
-            className="flex flex-wrap items-center justify-center gap-6 mt-10 text-t-3 font-sans text-[13px] tracking-wide"
-          >
+          <div className="flex flex-wrap items-center justify-center gap-6 mt-12 font-mono text-[12px] tracking-wider uppercase"
+               style={{ color: "var(--t-3)" }}>
             <span>15+ bug categories</span>
-            <span className="text-line-2">·</span>
+            <span style={{ color: "var(--line-2)" }}>·</span>
             <span>Iterative fix loop</span>
-            <span className="text-line-2">·</span>
+            <span style={{ color: "var(--line-2)" }}>·</span>
             <span>Auto-generated reports</span>
-            <span className="text-line-2">·</span>
+            <span style={{ color: "var(--line-2)" }}>·</span>
             <span>Zero configuration</span>
           </div>
         </div>
       </section>
 
       {/* ── Feature strip ──────────────────────────────── */}
-      <section className="py-20 border-y border-line">
+      <section className="py-20 border-y border-line bg-bg-1">
         <div className="wrap max-w-6xl">
           <div className="text-center mb-10">
             <p className="label mb-3">Features</p>
             <h2
-              className="font-sans font-semibold text-t-1 mb-3 tracking-[-0.04em]"
+              className="font-heading font-semibold text-t-1 mb-3 tracking-[-0.04em]"
               style={{ fontSize: "30px" }}
             >
               Built for fast, trustworthy fixes
@@ -439,12 +432,14 @@ export default function Home() {
       </section>
 
       {/* ── Workflow strip ─────────────────────────────── */}
-      <section className="py-14 border-b border-line">
+      <section
+        className="py-14 border-b border-line"
+      >
         <div className="wrap max-w-6xl">
           <div className="text-center mb-8">
             <p className="label mb-3">Workflow</p>
             <h2
-              className="font-sans font-semibold text-t-1 tracking-[-0.035em]"
+              className="font-heading font-semibold text-t-1 tracking-[-0.035em]"
               style={{ fontSize: "26px" }}
             >
               From raw code to documented fixes
@@ -465,13 +460,16 @@ export default function Home() {
       </section>
 
       {/* ── Editor section ─────────────────────────────── */}
-      <section ref={editorRef} className="py-20 scroll-mt-16">
+      <section
+        ref={editorRef}
+        className="py-20 scroll-mt-16 bg-bg-1"
+      >
         <div className="wrap max-w-6xl">
           {/* Section header */}
           <div className="mb-8">
             <p className="label mb-3">Input</p>
             <h2
-              className="font-sans font-semibold text-t-1 mb-2 tracking-[-0.035em]"
+              className="font-heading font-semibold text-t-1 mb-2 tracking-[-0.035em]"
               style={{ fontSize: "28px" }}
             >
               Paste or upload your file
@@ -487,9 +485,9 @@ export default function Home() {
             className="rounded-xl overflow-hidden mb-4"
             style={{
               border: running
-                ? "1px solid rgba(168,85,247,0.35)"
-                : "1px solid #27272A",
-              boxShadow: running ? "0 0 0 3px rgba(168,85,247,0.08)" : "none",
+                ? "1px solid rgba(9,9,11,0.5)"
+                : "1px solid var(--line-2)",
+              boxShadow: running ? "0 0 0 3px rgba(9,9,11,0.06)" : "none",
               transition: "border-color 0.3s, box-shadow 0.3s",
             }}
           >
@@ -537,8 +535,7 @@ export default function Home() {
               {!code && (
                 <button
                   onClick={() => setCode(SAMPLE)}
-                  className="text-xs text-accent hover:underline cursor-pointer text-center"
-                  style={{ fontFamily: "JetBrains Mono, monospace" }}
+                  className="text-xs text-accent hover:underline cursor-pointer text-center font-mono"
                 >
                   load sample →
                 </button>
@@ -551,15 +548,12 @@ export default function Home() {
             <div
               className="mt-4 flex items-start gap-3 p-4 rounded-xl animate-fade-in"
               style={{
-                background: "rgba(248,113,113,0.08)",
-                border: "1px solid rgba(248,113,113,0.2)",
+                background: "rgba(220,38,38,0.06)",
+                border: "1px solid rgba(220,38,38,0.18)",
               }}
             >
               <XCircle className="w-4 h-4 text-s_error flex-shrink-0 mt-0.5" />
-              <p
-                className="text-sm text-s_error"
-                style={{ fontFamily: "JetBrains Mono, monospace" }}
-              >
+              <p className="text-sm text-s_error font-mono">
                 {error}
               </p>
             </div>
@@ -578,7 +572,7 @@ export default function Home() {
             <div>
               <p className="label mb-3">Output</p>
               <h2
-                className="font-sans font-semibold text-t-1 tracking-[-0.035em]"
+                className="font-heading font-semibold text-t-1 tracking-[-0.035em]"
                 style={{ fontSize: "28px" }}
               >
                 {running ? "Analysing…" : "Results"}
@@ -606,9 +600,9 @@ export default function Home() {
                   style={{
                     background:
                       result.status === "ERROR"
-                        ? "rgba(248,113,113,0.06)"
-                        : "rgba(168,85,247,0.08)",
-                    border: `1px solid ${result.status === "ERROR" ? "rgba(248,113,113,0.2)" : "rgba(168,85,247,0.22)"}`,
+                        ? "rgba(220,38,38,0.06)"
+                        : "var(--bg-2)",
+                    border: `1px solid ${result.status === "ERROR" ? "rgba(220,38,38,0.18)" : "var(--line)"}`,
                   }}
                 >
                   <div className="flex items-center gap-2.5 flex-1 min-w-0">
@@ -667,8 +661,8 @@ export default function Home() {
                   <Tabs.List
                     className="flex items-center gap-1 p-1 rounded-xl w-full"
                     style={{
-                      background: "#0C0C0C",
-                      border: "1px solid #27272A",
+                      background: "var(--bg-1)",
+                      border: "1px solid var(--line)",
                     }}
                   >
                     {[
@@ -707,19 +701,14 @@ export default function Home() {
                         style={{ fontSize: "13px", fontWeight: 500 }}
                         data-variant="tab"
                       >
-                        <style>{`
-                          [data-variant="tab"][data-state="active"] {
-                            background: #27272A;
-                          }
-                        `}</style>
                         <Icon className="w-3.5 h-3.5 flex-shrink-0" />
                         <span className="hidden sm:inline">{label}</span>
                         {count !== null && count > 0 && (
                           <span
                             className="ml-0.5 font-mono text-xs px-1.5 py-0.5 rounded text-t-3"
                             style={{
-                              background: "#000000",
-                              border: "1px solid #27272A",
+                              background: "var(--bg)",
+                              border: "1px solid var(--line)",
                               fontSize: "11px",
                             }}
                           >
@@ -804,16 +793,8 @@ export default function Home() {
       <footer className="py-10 border-t border-line">
         <div className="wrap max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
-            <div
-              className="w-11 h-11 rounded-xl flex items-center justify-center"
-              style={{
-                background: "rgba(168,85,247,0.1)",
-                border: "1px solid rgba(168,85,247,0.22)",
-              }}
-            >
-              <Pickaxe className="w-6 h-6 text-accent" strokeWidth={2.25} />
-            </div>
-            <span className="font-sans text-lg font-semibold tracking-tight text-t-1">
+            <LogoIcon size={32} />
+            <span className="font-heading text-base font-bold tracking-tight text-t-1">
               D<span className="text-accent">IG</span>
             </span>
           </div>
@@ -857,7 +838,7 @@ function Stat({
   return (
     <div
       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
-      style={{ background: "#0C0C0C", border: "1px solid #27272A" }}
+      style={{ background: "var(--bg-1)", border: "1px solid var(--line-2)" }}
     >
       <span className={cn("font-mono font-bold text-sm", color)}>{value}</span>
       <span className="text-t-3" style={{ fontSize: "12px" }}>

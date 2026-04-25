@@ -1,6 +1,6 @@
 # Agentic Software Debugger & Documenter
 
-A multi-agent pipeline that detects issues in Python source, applies fixes with validation, and writes a Markdown debug report. Built with [Google ADK](https://google.github.io/adk-docs/) and Gemini.
+A multi-agent pipeline that detects issues in Python source, applies fixes with validation, and writes a Markdown debug report. Built with [Google ADK](https://google.github.io/adk-docs/) and Gemini. Includes a Next.js frontend and a FastAPI backend.
 
 ## What it does
 
@@ -13,7 +13,8 @@ Validation uses the **Linting** package (`validator` + rules), not only syntax c
 ## Requirements
 
 - Python 3.10+
-- `pip install -r requirements.txt` (includes `google-adk`, `python-dotenv`, `pytest`, etc.)
+- Node.js 18+
+- `pip install -r requirements.txt` (inside `Backend/`) — includes `google-adk`, `fastapi`, `uvicorn`, `python-dotenv`, `pytest`, etc.
 - **Google Gemini API key** (see Setup)
 
 ## Setup
@@ -21,23 +22,77 @@ Validation uses the **Linting** package (`validator` + rules), not only syntax c
 ```bash
 git clone <your-repo-url> SP202
 cd SP202
+```
+
+### Backend
+
+```bash
+cd Backend
+python -m venv .venv
+.venv/Scripts/activate       # Windows
+# source .venv/bin/activate  # macOS/Linux
 pip install -r requirements.txt
 ```
 
-Create a `.env` file in the project root (next to `requirements.txt`):
+Create a `.env` file inside `Backend/`:
 
 ```env
 GOOGLE_API_KEY=your_api_key_here
 ```
 
-Use `KEY=value` with no spaces around `=`. Agents load this via `python-dotenv`.
-
-## Usage
-
-From the repository root:
+### Frontend
 
 ```bash
-python Orchestration/controller.py path/to/your_file.py
+cd Frontend
+npm install
+```
+
+## Running
+
+### Backend (FastAPI server)
+
+```bash
+cd Backend
+.venv/Scripts/activate
+uvicorn Orchestration.controller:app --reload
+```
+
+Server runs at `http://localhost:8000`.
+
+### Frontend (Next.js)
+
+```bash
+cd Frontend
+npm run dev
+```
+
+App runs at `http://localhost:3000`.
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/run` | Upload a `.py` file and stream pipeline progress (NDJSON) |
+| `GET` | `/history` | List all completed runs |
+| `GET` | `/results/{run_id}` | Full result for a run |
+| `GET` | `/results/{run_id}/report` | Markdown or HTML report (`?format=md` or `?format=html`) |
+| `DELETE` | `/history/{run_id}` | Remove a run from history |
+
+### `/run` form fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `file` | file | required | Python source file to analyse |
+| `use_gemini_detection` | bool | `true` | Enable Gemini merge/review pass |
+| `use_llm_doc_format` | bool | `false` | Polish the Markdown report with an LLM |
+| `max_iterations` | int | `3` | Maximum fix-validate retry iterations |
+
+## CLI Usage (alternative to the server)
+
+```bash
+cd Backend
+.venv/Scripts/activate
+python -m Orchestration.controller path/to/your_file.py
 ```
 
 ### Options
@@ -46,39 +101,41 @@ python Orchestration/controller.py path/to/your_file.py
 |------|---------|
 | `--doc-output PATH` | Write the Markdown report to this path instead of the default. |
 | `--llm-doc-format` | Optional LLM pass to polish the generated Markdown. |
-| `--no-llm-detection` | Skip Gemini for detection; AST findings only (no merge/review call). |
+| `--no-llm-detection` | Skip Gemini for detection; AST findings only. |
 | `--json` | Print the full `PipelineState` as JSON instead of a short summary. |
 
-**Default report:** `<directory_of_source>/reports/<source_stem>_debug_report.md` (the `reports` folder is created as needed).
+Exit code `0` — `DONE` or `PARTIAL`; `1` — hard failure.
 
-### Exit code
-
-- `0` — Pipeline finished with status `DONE` or `PARTIAL`.
-- `1` — Hard failure (e.g. missing file, detection error, loop `ERROR`).
-
-## Project layout
+## Project Layout
 
 ```text
 SP202/
-├── Agents/
-│   ├── Baseagent.py       # ADK + Gemini wiring
-│   ├── Detector.py        # AST + optional Gemini merge
-│   ├── Documentation.py   # Markdown report
-│   ├── Fixer.py           # Deterministic + LLM fixes
-│   ├── Loop.py            # Fix → validate → retry
-│   └── test_*.py
-├── Documentation/         # Course design PDFs (if present)
-├── Linting/
-│   ├── rules.py
-│   ├── validator.py
-│   └── test_validator.py
-├── Orchestration/
-│   ├── controller.py      # CLI
-│   ├── pipeline.py        # run_pipeline()
-│   └── state.py           # PipelineState
-├── reports/               # Generated reports (example / local)
-├── bad_code_sample.py
-├── requirements.txt
+├── Backend/
+│   ├── Agents/
+│   │   ├── Baseagent.py       # ADK + Gemini wiring
+│   │   ├── Detector.py        # AST + optional Gemini merge
+│   │   ├── Documentation.py   # Markdown report
+│   │   ├── Fixer.py           # Deterministic + LLM fixes
+│   │   ├── Loop.py            # Fix → validate → retry
+│   │   └── test_*.py
+│   ├── Linting/
+│   │   ├── rules.py
+│   │   ├── validator.py
+│   │   └── test_validator.py
+│   ├── Orchestration/
+│   │   ├── controller.py      # FastAPI server + CLI entry point
+│   │   ├── pipeline.py        # run_pipeline()
+│   │   └── state.py           # PipelineState dataclass
+│   ├── .venv/
+│   ├── bad_code_sample.py
+│   └── requirements.txt
+├── Frontend/
+│   ├── app/
+│   │   ├── page.tsx           # Main upload + pipeline UI
+│   │   ├── history/page.tsx   # Run history
+│   │   ├── results/[id]/page.tsx  # Result detail
+│   │   └── layout.tsx
+│   └── package.json
 └── README.md
 ```
 
@@ -86,61 +143,39 @@ SP202/
 
 | Module | Role |
 |--------|------|
-| `Orchestration/controller.py` | Parses CLI args, calls `run_pipeline`, prints summary or JSON, sets process exit code (`0` for `DONE` / `PARTIAL`, else `1`). |
-| `Orchestration/pipeline.py` | Single entry `run_pipeline`: validate path → add `Agents/` and `Linting/` to `sys.path` → detection → `LoopAgent.run_loop` with `validate_source` → `DocumentationAgent.document_run`. |
+| `Orchestration/controller.py` | FastAPI app + CLI fallback. Streams pipeline progress via NDJSON, stores results in memory, exposes history/result/report endpoints. |
+| `Orchestration/pipeline.py` | Single entry `run_pipeline`: validate path → add `Agents/` and `Linting/` to `sys.path` → detection → `LoopAgent.run_loop` → `DocumentationAgent.document_run`. |
 | `Orchestration/state.py` | `PipelineState` dataclass: bug report, loop result, documentation result, errors; `finish(status)` sets final status and timestamps. |
-
-**Pipeline stages**
-
-1. Read source; run **BugDetectionAgent** (`audit_file`). On failure → `ERROR`.
-2. Run **LoopAgent** with the same file path, the detection `bug_report`, and `Linting.validator.validate_source`.
-3. Run **DocumentationAgent** (`document_run`). Doc failures are recorded but do not always abort the whole run.
-
-**Final status:** `DONE` when the loop ends in an acceptable state and documentation status is `DOCUMENTED`; `ERROR` if the loop reports `ERROR`; otherwise often `PARTIAL`.
 
 ## Agents
 
-All LLM agents subclass **BaseAgent** (`Baseagent.py`): loads root `.env`, requires `GOOGLE_API_KEY`, builds an ADK `Agent` + `Runner`, exposes `run(prompt) -> str` (sync wrapper over async execution). Default model: `gemini-2.5-flash`.
+All LLM agents subclass **BaseAgent** (`Baseagent.py`): loads root `.env`, requires `GOOGLE_API_KEY`, builds an ADK `Agent` + `Runner`, exposes `run(prompt) -> str`. Default model: `gemini-2.5-flash`.
 
-### Detector (`Detector.py`)
+### Detector
+- **DetectorEngine** — AST walk: mutable defaults, `eval`/`exec`, hardcoded secrets, bare `except`, `global`, unsafe `open()`, `snake_case`, etc.
+- **BugDetectionAgent** — Runs `DetectorEngine`, then optionally Gemini to merge/dedupe. Falls back to AST report if Gemini is off or JSON merge fails.
 
-- **DetectorEngine** — Non-LLM `ast` walk: mutable defaults, `eval`/`exec`, likely hardcoded secrets, bare `except`, `global`, unsafe `open()` heuristic, `snake_case`, etc. Returns a `bug_report`-shaped dict (`status`, `critical_count`, `findings` with line, type, severity, diagnosis, neutralization).
-- **BugDetectionAgent** — Runs `DetectorEngine`, then optionally Gemini to compare with AST findings, merge/dedupe, and add misses. **`audit_file(filepath, *, use_gemini_review=True)`** returns `ast_report`, `bug_report` (what Fixer uses), `gemini_review` metadata, and optional `formatted_summary`. If Gemini is off or JSON merge fails, `bug_report` falls back to the AST report.
+### Fixer
+- **FixerEngine** — Deterministic passes: mutable defaults → `None`; bare `except` → `except Exception:`; `== None` → `is None`.
+- **FixerAgent** — Deterministic fixes first, then LLM for remaining findings. `MAX_ITERATIONS = 3`.
 
-### Fixer (`Fixer.py`)
+### Loop
+- **`LoopAgent.run_loop`** — Backs up original to `*.bak`, repeatedly calls `FixerAgent.fix_file`, writes result, runs the validator. Stops on `CLEAN`, `NO_IMPROVEMENT`, `MAX_ITERATIONS_REACHED`, or fixer `ERROR`.
 
-- **FixerEngine** — Deterministic passes: mutable defaults → `None`; bare `except` → `except Exception:`; `== None` / `!= None` → `is` / `is not`. **`apply_all()`** returns fixed source and a `fix_log`.
-- **FixerAgent** — **`fix_file(filepath, bug_report, iteration)`**: deterministic fixes first, then LLM for remaining findings. **`fix_and_save`** writes `<stem>_fixed.py` (helper; the pipeline uses `fix_file` via the loop). `MAX_ITERATIONS = 3`. Status values include `FIX_ATTEMPTED`, `NO_ISSUES`, `ERROR`, `MAX_ITERATIONS_REACHED`. The model’s fenced code block is extracted as the fixed source.
-
-### Loop (`Loop.py`)
-
-- **`LoopAgent.run_loop(filepath, bug_report, validate_fn)`** — Backs up the original to `*.bak`, repeatedly calls `FixerAgent.fix_file`, writes result to the original path, runs `validate_fn` (from the pipeline: full linter). Stops on **`CLEAN`** (no validation errors), **`NO_IMPROVEMENT`** (error count not decreasing), **`MAX_ITERATIONS_REACHED`**, or fixer **`ERROR`**. After a failed validation, rebuilds `bug_report` from linter output so the next iteration targets current validator findings. Without `validate_fn`, falls back to syntax-only parsing (not used from `pipeline.py`).
-
-### Documentation (`Documentation.py`)
-
-**Role:** Produce a Markdown report for a single run: file path, loop outcome, detector findings, per-iteration fix log, and both final and original code.
-
-**Main API:** `document_run(source_path, bug_report, loop_result, original_code=None, output_path=None, use_llm_formatter=False)`
-
-**Flow:**
-
-1. Read the current file from disk (so the report stays aligned if the path was edited).
-2. **`build_markdown(...)`** — Deterministic sections; no LLM required for the base report.
-3. Optionally **`_polish_markdown`** via `BaseAgent.run` when `use_llm_formatter=True`.
-4. **`write_report`** persists the file and creates parent directories as needed.
-
-**Default output:** `<directory_containing_source>/reports/<source_stem>_debug_report.md` (overridden by CLI `--doc-output`).
-
-**Return value:** A `DocumentResult`-shaped dict — `status` (`DOCUMENTED` | `ERROR`), `markdown`, `output_path`, and on failure an `error` string. The **`DocumentResult`** / **`DocumentResultError`** `TypedDict`s in `Documentation.py` describe the shape.
+### Documentation
+- **`document_run`** — Deterministic Markdown sections; optional LLM polish pass. Default output: `<source_dir>/reports/<stem>_debug_report.md`.
 
 ## Tests
 
 ```bash
+cd Backend
 pytest
 ```
 
-Run from the repo root; tests live under `Agents/` and `Linting/`.
+## Conclusion
 
-## Status
+The preliminary results demonstrate that a hybrid multi-agent approach — combining deterministic AST analysis with LLM-powered reasoning — is viable for automated Python code repair and documentation. The system successfully detects, categorizes, and fixes the majority of common bug categories in a single pipeline run with no manual intervention.
 
-Work in progress — behavior and CLI may change as the course project evolves.
+The two-pass detection model (AST + LLM merge) reduces both false positives and false negatives. The deterministic-first fixing strategy reduces API cost while preserving coverage for complex issues. The `NO_IMPROVEMENT` termination on `eval()`/`exec()` bugs confirms the system correctly recognizes its own repair limits — an important safety property for an autonomous agent.
+
+**Future Work:** Expand rule coverage (unused imports, type hints, shadowed builtins), introduce multi-file support, improve the loop's ability to distinguish structurally unresolvable bugs, and add an end-to-end integration test for `pipeline.py`.

@@ -10,6 +10,7 @@ import {
   RotateCcw,
   ArrowLeft,
 } from "lucide-react";
+import { Navbar } from "@/components/layout/Navbar";
 import { Button } from "@/components/ui/Button";
 import { useAppStore } from "@/lib/store";
 
@@ -67,6 +68,8 @@ export default function SettingsPage() {
   };
 
   return (
+    <>
+      <Navbar />
     <div className="min-h-screen py-20 animate-fade-in">
       <div className="wrap max-w-2xl mx-auto">
         <div className="flex items-center justify-between gap-3 mb-6">
@@ -245,5 +248,6 @@ export default function SettingsPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }

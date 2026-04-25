@@ -83,32 +83,32 @@ export function CodeDiff({ originalCode, fixedCode }: CodeDiffProps) {
             splitView={splitView}
             leftTitle="Original"
             rightTitle="Fixed"
-            useDarkTheme={true}
+            useDarkTheme={false}
             styles={{
               variables: {
-                dark: {
-                  diffViewerBackground: "#0C0C0C",
-                  diffViewerColor: "#FAFAFA",
-                  addedBackground: "#A855F71A",
-                  addedColor: "#F8FAFC",
-                  removedBackground: "#EF44441A",
-                  removedColor: "#F8FAFC",
-                  wordAddedBackground: "#A855F733",
-                  wordRemovedBackground: "#EF444433",
-                  addedGutterBackground: "#A855F726",
-                  removedGutterBackground: "#EF444426",
-                  gutterBackground: "#000000",
-                  gutterBackgroundDark: "#000000",
-                  highlightBackground: "#18181B",
-                  highlightGutterBackground: "#18181B",
-                  codeFoldBackground: "#0F172A",
-                  addedGutterColor: "#A855F7",
-                  removedGutterColor: "#EF4444",
-                  emptyLineBackground: "#000000",
-                  gutterColor: "#52525B",
-                  diffViewerTitleBackground: "#18181B",
-                  diffViewerTitleBorderColor: "#27272A",
-                  diffViewerTitleColor: "#A1A1AA",
+                light: {
+                  diffViewerBackground: "#FAFAFA",
+                  diffViewerColor: "#09090B",
+                  addedBackground: "rgba(22,163,74,0.08)",
+                  addedColor: "#09090B",
+                  removedBackground: "rgba(220,38,38,0.08)",
+                  removedColor: "#09090B",
+                  wordAddedBackground: "rgba(22,163,74,0.18)",
+                  wordRemovedBackground: "rgba(220,38,38,0.18)",
+                  addedGutterBackground: "rgba(22,163,74,0.12)",
+                  removedGutterBackground: "rgba(220,38,38,0.12)",
+                  gutterBackground: "#F4F4F5",
+                  gutterBackgroundDark: "#E4E4E7",
+                  highlightBackground: "#E4E4E7",
+                  highlightGutterBackground: "#D4D4D8",
+                  codeFoldBackground: "#F4F4F5",
+                  addedGutterColor: "#16A34A",
+                  removedGutterColor: "#DC2626",
+                  emptyLineBackground: "#FAFAFA",
+                  gutterColor: "#A1A1AA",
+                  diffViewerTitleBackground: "#F4F4F5",
+                  diffViewerTitleBorderColor: "#E4E4E7",
+                  diffViewerTitleColor: "#52525B",
                 },
               },
             }}

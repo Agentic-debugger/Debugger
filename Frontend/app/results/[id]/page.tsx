@@ -11,6 +11,7 @@ import {
   FileText,
   Loader2,
 } from "lucide-react";
+import { Navbar } from "@/components/layout/Navbar";
 import { FindingsTable } from "@/components/results/FindingsTable";
 import { FixHistory } from "@/components/results/FixHistory";
 import { CodeDiff } from "@/components/results/CodeDiff";
@@ -51,22 +52,28 @@ export default function ResultsPage() {
 
   if (loading)
     return (
-      <div className="page-container flex items-center justify-center min-h-[60vh]">
-        <div className="flex items-center gap-3 text-t-3">
-          <Loader2 className="w-5 h-5 animate-spin" />
-          <span className="text-sm">Loading results...</span>
+      <>
+        <Navbar />
+        <div className="page-container flex items-center justify-center min-h-[60vh]">
+          <div className="flex items-center gap-3 text-t-3">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span className="text-sm">Loading results...</span>
+          </div>
         </div>
-      </div>
+      </>
     );
 
   if (error || !result)
     return (
-      <div className="page-container flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <p className="text-s_error text-sm">{error ?? "Result not found"}</p>
-        <Button variant="secondary" size="sm" onClick={() => router.push("/")}>
-          Back to Run
-        </Button>
-      </div>
+      <>
+        <Navbar />
+        <div className="page-container flex flex-col items-center justify-center min-h-[60vh] gap-4">
+          <p className="text-s_error text-sm">{error ?? "Result not found"}</p>
+          <Button variant="secondary" size="sm" onClick={() => router.push("/")}>
+            Back to Run
+          </Button>
+        </div>
+      </>
     );
 
   const findingCount = result.bug_report?.findings.length ?? 0;
@@ -78,6 +85,8 @@ export default function ResultsPage() {
       .length ?? 0;
 
   return (
+    <>
+      <Navbar />
     <div className="page-container space-y-5 animate-fade-in">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
@@ -242,6 +251,7 @@ export default function ResultsPage() {
         </Tabs.Content>
       </Tabs.Root>
     </div>
+    </>
   );
 }
 

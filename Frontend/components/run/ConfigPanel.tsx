@@ -51,7 +51,7 @@ export function ConfigPanel({ config, onChange, disabled }: ConfigPanelProps) {
           onChange={(e) => onChange({ max_iterations: Number(e.target.value) })}
           className="w-full h-1 rounded-full appearance-none cursor-pointer accent-accent
                      disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{ background: '#27272A' }}
+          style={{ background: 'var(--line-2)' }}
           aria-label="Max iterations"
         />
         <div className="flex justify-between font-mono text-t-3" style={{ fontSize: '11px' }}>
@@ -85,7 +85,7 @@ function Row({ icon, label, desc, checked, onCheckedChange, disabled }: {
                    focus:outline-none focus:ring-2 focus:ring-accent/40 focus:ring-offset-2 focus:ring-offset-bg
                    disabled:opacity-40 disabled:cursor-not-allowed
                    data-[state=checked]:bg-accent data-[state=unchecked]:bg-bg-3"
-        style={{ border: '1px solid #27272A' }}>
+        style={{ border: '1px solid var(--line-2)' }}>
         <span className="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white
                          shadow-sm transition-transform duration-200
                          data-[state=checked]:translate-x-4 data-[state=unchecked]:translate-x-0.5" />

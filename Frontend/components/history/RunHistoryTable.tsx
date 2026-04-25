@@ -71,7 +71,7 @@ export function RunHistoryTable({
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-border">
+        <tbody className="divide-y divide-line">
           {history.map((entry) => (
             <tr
               key={entry.id}
@@ -146,7 +146,7 @@ export function RunHistoryTable({
 
               {/* Actions */}
               <td className="px-4 py-3">
-                <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                <div className="flex items-center justify-end gap-1 opacity-40 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150">
                   <Link href={`/results/${entry.id}`}>
                     <Button
                       variant="ghost"

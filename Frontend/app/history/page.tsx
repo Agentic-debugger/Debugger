@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, History } from "lucide-react";
+import { Trash2, History, Loader2 } from "lucide-react";
+import { Navbar } from "@/components/layout/Navbar";
 import { RunHistoryTable } from "@/components/history/RunHistoryTable";
 import { Button } from "@/components/ui/Button";
 import { useAppStore } from "@/lib/store";
@@ -17,6 +18,7 @@ export default function HistoryPage() {
     clearHistory,
   } = useAppStore();
   const [history, setHistory] = useState<RunHistoryEntry[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
@@ -26,6 +28,9 @@ export default function HistoryPage() {
       })
       .catch(() => {
         if (mounted) setHistory(localHistory);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
       });
     return () => {
       mounted = false;
@@ -62,6 +67,8 @@ export default function HistoryPage() {
   };
 
   return (
+    <>
+      <Navbar />
     <div className="page-container space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -92,11 +99,19 @@ export default function HistoryPage() {
       </div>
 
       {/* Table */}
-      <RunHistoryTable
-        history={history}
-        onDelete={(id) => void handleDelete(id)}
-        onRerun={handleRerun}
-      />
+      {loading ? (
+        <div className="flex items-center justify-center py-24 gap-3 text-t-3">
+          <Loader2 className="w-5 h-5 animate-spin" />
+          <span className="text-sm">Loading history…</span>
+        </div>
+      ) : (
+        <RunHistoryTable
+          history={history}
+          onDelete={(id) => void handleDelete(id)}
+          onRerun={handleRerun}
+        />
+      )}
     </div>
+    </>
   );
 }

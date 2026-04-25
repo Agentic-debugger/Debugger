@@ -91,7 +91,7 @@ export function ReportViewer({ doc, runId }: ReportViewerProps) {
       {/* Content */}
       <div className="border border-line rounded-lg overflow-hidden">
         {view === "rendered" ? (
-          <div className="p-6 max-h-[600px] overflow-y-auto prose-sp202">
+          <div className="p-6 max-h-[600px] overflow-y-auto prose-content">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {doc.markdown}
             </ReactMarkdown>

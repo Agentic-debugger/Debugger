@@ -9,35 +9,36 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // ── Backgrounds (Photography Studio palette from ui-ux-pro-max) ──
-        bg:      '#000000',   // pure black
-        'bg-1':  '#0C0C0C',
-        'bg-2':  '#18181B',   // card surfaces
-        'bg-3':  '#27272A',   // elevated / hover
+        // ── Backgrounds — clean white ──
+        bg:      '#FFFFFF',
+        'bg-1':  '#FAFAFA',
+        'bg-2':  '#F4F4F5',   // zinc-100
+        'bg-3':  '#E4E4E7',   // zinc-200
 
         // ── Borders ──
-        line:    '#27272A',   // subtle
-        'line-2':'#3F3F46',   // hover / active
+        line:    '#E4E4E7',   // zinc-200
+        'line-2':'#D4D4D8',   // zinc-300
 
-        // ── Accent — violet on dark ──
-        accent:  '#A855F7',
-        'accent-h': '#9333EA',
+        // ── Accent — black ──
+        accent:     '#09090B',  // zinc-950
+        'accent-h': '#18181B',  // zinc-900
 
         // ── Text hierarchy ──
-        't-1':   '#FAFAFA',   // primary
-        't-2':   '#A1A1AA',   // secondary
-        't-3':   '#52525B',   // muted
+        't-1':  '#09090B',   // near-black
+        't-2':  '#52525B',   // zinc-600
+        't-3':  '#A1A1AA',   // zinc-400
 
-        // ── Status (muted to stay in b&w system) ──
-        s_ok:    '#C084FC',
-        s_error: '#F87171',
-        s_warn:  '#FBBF24',
-        s_info:  '#A1A1AA',   // info is grey in monochrome system
+        // ── Status ──
+        s_ok:    '#16A34A',
+        s_error: '#DC2626',
+        s_warn:  '#D97706',
+        s_info:  '#52525B',
       },
 
       fontFamily: {
-        sans: ['var(--font-geist-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        mono: ['var(--font-geist-mono)', 'ui-monospace', 'monospace'],
+        sans:    ['var(--font-sans)',    'ui-sans-serif', 'system-ui', 'sans-serif'],
+        heading: ['var(--font-heading)', 'var(--font-sans)', 'ui-sans-serif', 'sans-serif'],
+        mono:    ['var(--font-geist-mono)', 'ui-monospace', 'monospace'],
       },
 
       fontSize: {
@@ -58,23 +59,24 @@ const config: Config = {
       },
 
       boxShadow: {
-        sm:     '0 1px 3px rgba(0,0,0,0.8)',
-        md:     '0 2px 8px rgba(0,0,0,0.9)',
-        accent: '0 0 0 1px rgba(168,85,247,0.35), 0 4px 20px rgba(168,85,247,0.15)',
+        sm:     '0 1px 3px rgba(0,0,0,0.08)',
+        md:     '0 2px 8px rgba(0,0,0,0.1)',
+        lg:     '0 4px 20px rgba(0,0,0,0.1)',
+        accent: '0 0 0 1px rgba(9,9,11,0.15), 0 4px 16px rgba(9,9,11,0.08)',
       },
 
       animation: {
-        'fade-in':  'fadeIn 0.18s ease-out',
-        'slide-up': 'slideUp 0.28s cubic-bezier(0.16,1,0.3,1)',
-        'pulse-dot':'pulseDot 2s ease-in-out infinite',
-        'rail-flow': 'railFlow 1.15s linear infinite',
-        'rail-flow-slow': 'railFlow 2.35s linear infinite',
-        'stage-glow': 'stageGlow 2.2s ease-in-out infinite',
-        'loop-back-dash': 'loopBackDash 1.85s linear infinite',
+        'fade-in':       'fadeIn 0.18s ease-out',
+        'slide-up':      'slideUp 0.28s cubic-bezier(0.16,1,0.3,1)',
+        'pulse-dot':     'pulseDot 2s ease-in-out infinite',
+        'rail-flow':     'railFlow 1.15s linear infinite',
+        'rail-flow-slow':'railFlow 2.35s linear infinite',
+        'stage-glow':    'stageGlow 2.2s ease-in-out infinite',
+        'loop-back-dash':'loopBackDash 1.85s linear infinite',
       },
 
       keyframes: {
-        fadeIn:   { from: { opacity: '0' },                              to: { opacity: '1' } },
+        fadeIn:   { from: { opacity: '0' }, to: { opacity: '1' } },
         slideUp:  { from: { opacity: '0', transform: 'translateY(10px)' }, to: { opacity: '1', transform: 'translateY(0)' } },
         pulseDot: { '0%,100%': { opacity: '1', transform: 'scale(1)' }, '50%': { opacity: '0.5', transform: 'scale(0.8)' } },
         railFlow: {
@@ -83,18 +85,16 @@ const config: Config = {
         },
         stageGlow: {
           '0%, 100%': {
-            boxShadow:
-              '0 0 14px rgba(168,85,247,0.35), 0 0 28px rgba(168,85,247,0.2)',
-            borderColor: 'rgba(168,85,247,0.45)',
+            boxShadow: '0 0 0 2px rgba(9,9,11,0.15), 0 2px 8px rgba(9,9,11,0.1)',
+            borderColor: 'rgba(9,9,11,0.7)',
           },
           '50%': {
-            boxShadow:
-              '0 0 22px rgba(168,85,247,0.55), 0 0 40px rgba(168,85,247,0.3)',
-            borderColor: 'rgba(192,132,252,0.85)',
+            boxShadow: '0 0 0 3px rgba(9,9,11,0.2), 0 4px 16px rgba(9,9,11,0.15)',
+            borderColor: 'rgba(9,9,11,1)',
           },
         },
         loopBackDash: {
-          '0%': { strokeDashoffset: '0' },
+          '0%':   { strokeDashoffset: '0' },
           '100%': { strokeDashoffset: '-48' },
         },
       },

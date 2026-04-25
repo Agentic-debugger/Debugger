@@ -24,7 +24,8 @@
       "Bash(sed -i \"s/'CLEAN' ? 'clean'/'CLEAN' ? 'ok'/g\" \"app/results/[id]/page.tsx\")",
       "Bash(sed -i \"s/: 'warning'/: 'warn'/g\" \"app/results/[id]/page.tsx\")",
       "Bash(python \"C:/Users/omode/.claude/skills/ui-ux-pro-max/scripts/search.py\" \"black white monochrome minimal professional\" --domain style -n 5)",
-      "Bash(python \"C:/Users/omode/.claude/skills/ui-ux-pro-max/scripts/search.py\" \"black white minimalism swiss professional SaaS\" --domain color -n 3)"
+      "Bash(python \"C:/Users/omode/.claude/skills/ui-ux-pro-max/scripts/search.py\" \"black white minimalism swiss professional SaaS\" --domain color -n 3)",
+      "Bash(python *)"
     ]
   }
 }

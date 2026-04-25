@@ -77,14 +77,14 @@ function RailSegment({
       {warmup && (
         <div className="absolute inset-0 opacity-75 pointer-events-none">
           <div
-            className="absolute inset-y-0 w-[46%] rounded-full bg-gradient-to-r from-transparent via-accent to-transparent animate-rail-flow-slow shadow-[0_0_14px_rgba(168,85,247,0.55)]"
+            className="absolute inset-y-0 w-[46%] rounded-full bg-gradient-to-r from-transparent via-accent to-transparent animate-rail-flow-slow shadow-[0_0_14px_rgba(9,9,11,0.4)]"
             style={{ willChange: "transform" }}
           />
         </div>
       )}
       {flowEnergy && (
         <div
-          className="absolute inset-y-0 w-[42%] rounded-full bg-gradient-to-r from-transparent via-accent to-transparent opacity-95 animate-rail-flow shadow-[0_0_18px_rgba(168,85,247,0.92)]"
+          className="absolute inset-y-0 w-[42%] rounded-full bg-gradient-to-r from-transparent via-accent to-transparent opacity-95 animate-rail-flow shadow-[0_0_18px_rgba(9,9,11,0.7)]"
           style={{ willChange: "transform" }}
         />
       )}
@@ -145,7 +145,7 @@ export function PipelineProgressPanel({
           </p>
         </div>
         {isRunning && activeStage >= 0 && (
-          <div className="shrink-0 flex items-center gap-2 rounded-full border border-accent/35 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent shadow-[0_0_20px_rgba(168,85,247,0.25)]">
+          <div className="shrink-0 flex items-center gap-2 rounded-full border border-accent/35 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent shadow-[0_0_20px_rgba(9,9,11,0.12)]">
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-40" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
@@ -186,7 +186,7 @@ export function PipelineProgressPanel({
                       state === "active" &&
                         "border-accent bg-accent/15 text-accent scale-[1.05] animate-stage-glow",
                       state === "done" &&
-                        "border-accent bg-accent text-white shadow-[0_0_14px_rgba(168,85,247,0.4)]",
+                        "border-accent bg-accent text-white shadow-[0_0_14px_rgba(9,9,11,0.3)]",
                     )}
                   >
                     {state === "active" && isRunning ? (
@@ -244,7 +244,7 @@ export function PipelineProgressPanel({
             <svg
               className={cn(
                 "h-[52px] md:h-[56px] w-full overflow-visible select-none",
-                loopBackActive ? "text-accent drop-shadow-[0_0_10px_rgba(168,85,247,0.45)]" : "text-t-3/40",
+                loopBackActive ? "text-accent drop-shadow-[0_0_10px_rgba(9,9,11,0.5)]" : "text-t-3/40",
               )}
               viewBox="0 0 100 24"
               preserveAspectRatio="xMidYMid meet"
@@ -262,7 +262,7 @@ export function PipelineProgressPanel({
                 >
                   <path
                     d="M0,0 L5,2.5 L0,5 z"
-                    fill={loopBackActive ? "#A855F7" : "rgba(82,82,91,0.6)"}
+                    fill={loopBackActive ? "#09090B" : "rgba(161,161,170,0.6)"}
                   />
                 </marker>
               </defs>
@@ -301,8 +301,10 @@ export function PipelineProgressPanel({
 
       {curMessage && isRunning && (
         <div
+          role="status"
+          aria-live="polite"
           className="rounded-xl border border-accent/25 bg-accent/5 px-4 py-3 text-sm text-t-2 leading-snug"
-          style={{ boxShadow: "0 0 24px rgba(168,85,247,0.12)" }}
+          style={{ boxShadow: "0 0 24px rgba(9,9,11,0.06)" }}
         >
           <span className="font-mono text-xs uppercase tracking-wider text-accent">
             Status
@@ -324,12 +326,12 @@ export function PipelineProgressPanel({
           style={{
             background:
               result.status === "ERROR"
-                ? "rgba(248,113,113,0.06)"
-                : "rgba(168,85,247,0.08)",
+                ? "rgba(220,38,38,0.06)"
+                : "var(--bg-2)",
             border: `1px solid ${
               result.status === "ERROR"
-                ? "rgba(248,113,113,0.2)"
-                : "rgba(168,85,247,0.22)"
+                ? "rgba(220,38,38,0.18)"
+                : "var(--line)"
             }`,
           }}
         >
