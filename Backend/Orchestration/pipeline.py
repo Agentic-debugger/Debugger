@@ -62,7 +62,7 @@ def run_pipeline(
     from validator import validate_source
 
     try:
-        state.original_code = source.read_text(encoding="utf-8")
+        state.original_code = source.read_text(encoding="utf-8", errors="replace")
     except OSError as exc:
         state.errors.append(str(exc))
         state.finish("ERROR")

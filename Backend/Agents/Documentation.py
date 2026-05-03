@@ -137,7 +137,7 @@ Rules:
         """Persist generated markdown to disk and return saved path."""
         out = Path(output_path)
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(markdown, encoding="utf-8")
+        out.write_text(markdown)
         return str(out)
 
     def _polish_markdown(self, markdown: str) -> str:
@@ -182,7 +182,7 @@ Return markdown only.
 
         source = Path(source_path)
         try:
-            source_text = source.read_text(encoding="utf-8")
+            source_text = source.read_text()
         except OSError as exc:
             return {
                 "status": "ERROR",

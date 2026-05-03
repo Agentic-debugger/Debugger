@@ -5,7 +5,7 @@ import * as Accordion from '@radix-ui/react-accordion'
 import { Badge } from '@/components/ui/Badge'
 import { cn } from '@/lib/utils'
 import { ChevronDown, CheckCircle2, XCircle, Minus, Wrench } from 'lucide-react'
-import type { LoopResult, LoopIteration } from '@/lib/types'
+import type { LoopResult, LoopIteration, ValidationError } from '@/lib/types'
 
 interface FixHistoryProps {
   loopResult: LoopResult
@@ -165,9 +165,13 @@ function IterationDetail({ iter }: { iter: LoopIteration }) {
           <p className="text-xs font-semibold text-t-3 uppercase tracking-wide mb-2">
             Remaining Errors ({iter.errors.length})
           </p>
-          <div className="space-y-1 max-h-40 overflow-y-auto">
-            {iter.errors.map((err, i) => (
-              <p key={i} className="text-xs font-mono text-s_error/80 break-words">{err}</p>
+          <div className="space-y-1.5 max-h-48 overflow-y-auto">
+            {iter.errors.map((err: ValidationError, i) => (
+              <div key={i} className="flex items-start gap-3 text-xs font-mono">
+                <span className="text-s_error/60 flex-shrink-0">:{err.line}</span>
+                <span className="bg-bg-3 text-t-3 px-1.5 py-0.5 rounded flex-shrink-0">{err.code}</span>
+                <span className="text-s_error/80 break-words leading-relaxed">{err.message}</span>
+              </div>
             ))}
           </div>
         </div>

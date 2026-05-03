@@ -28,11 +28,19 @@ export interface FixLogEntry {
   description: string
 }
 
+export interface ValidationError {
+  line: number
+  code: string
+  severity: string
+  message: string
+  neutralization: string
+}
+
 export interface LoopIteration {
   iteration: number
   fix_status: string
   error_count: number
-  errors: string[]
+  errors: ValidationError[]
   fix_log: FixLogEntry[]
 }
 

@@ -25,7 +25,7 @@ export function FindingsTable({
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [expanded, setExpanded] = useState<number | null>(null);
 
-  if (bugReport.status === "CLEAN" || !bugReport.findings.length) {
+  if (!bugReport.findings.length) {
     return (
       <div className="flex flex-col items-center justify-center py-14 gap-3">
         <div
@@ -195,12 +195,12 @@ function FindingRow({ finding, isExpanded, onToggle, onLineClick }: {
           <td colSpan={4} className="px-4 py-4">
             <div className="grid grid-cols-2 gap-4" style={{ fontSize: "12px" }}>
               <div>
-                <p className="label mb-1.5">Diagnosis</p>
-                <p className="text-t-2 leading-relaxed">{finding.diagnosis}</p>
+                <p className="mb-1.5 font-medium" style={{ color: "rgba(255,255,255,0.5)" }}>Diagnosis</p>
+                <p className="leading-relaxed" style={{ color: "rgba(255,255,255,0.9)" }}>{finding.diagnosis}</p>
               </div>
               <div>
-                <p className="label mb-1.5">Suggested fix</p>
-                <p className="text-t-2 leading-relaxed">{finding.neutralization}</p>
+                <p className="mb-1.5 font-medium" style={{ color: "rgba(255,255,255,0.5)" }}>Suggested fix</p>
+                <p className="leading-relaxed" style={{ color: "rgba(255,255,255,0.9)" }}>{finding.neutralization}</p>
               </div>
             </div>
           </td>
